@@ -67,3 +67,14 @@ abacus-research/parse-answer-errors/*
 scripts/litellm_stats/
 scripts/provider_stats/
 tests/pytest/data/generator_messages/
+
+# local Python installs
+Lib/
+
+# large local resume datasets
+data/resume_atlas.csv
+data/resumes_clean.jsonl
+data/resumes_with_pii.jsonl
+data/pii_labels.jsonl
+data/documents/
+data/github-resume-scraper/
