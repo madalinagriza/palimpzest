@@ -1,0 +1,81 @@
+Mid-Term Project Report
+
+Privacy-Aware Operator Routing in Palimpzest
+
+April 2026
+
+1\. Project Overview
+
+This project implements privacy-aware model routing inside Palimpzest (PZ), a semantic query processing framework that uses LLMs as first-class query operators. The core insight is that not all data processed by a PZ pipeline is equally sensitive: an email's subject line and scheduling details carry very different privacy risks than a sender's name, phone number, or Social Security Number. The current PZ architecture routes every operator call to whichever cloud model the optimizer selects (typically GPT-4o), regardless of whether the fields being processed contain PII. Our system adds a lightweight classification and routing layer that intercepts each operator call before the LLM is invoked, detects PII in the relevant fields, and redirects sensitive operators to a locally-served model (Llama via Ollama) so that private data never leaves the machine.
+
+2\. Project Status
+
+2.1 Completed Tasks
+
+* Mapped the full Palimpzest operator graph architecture, including how logical plans (Dataset chains) are constructed, how the Cascades-style optimizer converts them to physical plans, and where model selection is currently baked in at optimization time.  
+* Identified the best hook point for privacy routing: the execution loop inside SequentialSingleThreadExecutionStrategy.\_execute\_plan() (line 88), where both the operator state and input record are simultaneously accessible before any LLM call is made.  
+* Built a working exploration pipeline (explore\_pipeline.py) that loads Enron email testdata, runs a sem\_map to extract subject and sender fields followed by a sem\_filter for scheduling-related content, and prints both the logical and physical plan with full field introspection. This pipeline confirmed that operator.get\_input\_fields(), operator.generated\_fields, and operator.input\_schema.model\_fields are all accessible at execution time.  
+* Authored the initial routing stub (routing\_stub.py) containing the ModelConfig dataclass (mapping local/cloud model identifiers), the PrivacyRouter class with a documented route() interface, and the execute\_with\_routing() wrapper that logs routing decisions and calls the operator through PZ's standard \_\_call\_\_ path.  
+* Documented the planned Presidio integration point inside PrivacyRouter.route(), including the exact API call pattern (AnalyzerEngine.analyze()), install instructions, and the rationale for field-value scanning over field-name heuristics.  
+* Integrated Microsoft Presidio into PrivacyRouter: replaced the hardcoded 'always cloud' placeholder with a real two-layer detector. The primary layer runs Presidio's AnalyzerEngine on each field value; the fallback layer uses field-name heuristics (a set of 14 sensitive token patterns such as 'email', 'ssn', 'credit\_card') and regex patterns (email addresses, US phone numbers, SSNs, credit card numbers, IP addresses). Detection results are captured in structured Detection and RouteDecision dataclasses that carry entity type, source (presidio vs. heuristic vs. regex), confidence score, and a 60-character preview for logging.  
+* Implemented best-effort model swap in execute\_with\_routing(): when the router returns 'local', \_set\_operator\_model\_if\_possible() attempts to overwrite operator.model with the local model string, succeeding for operators that store the model as a plain string and gracefully skipping those that use PZ's internal Model enum.  
+* Extended the smoke test to exercise the full detection path: a fake record with 'Contact John Smith at john@example.com or 617-555-1212' in the contents field now asserts destination == 'local', verifying that the Presidio/regex path triggers correctly.
+
+2.2 Open Tasks
+
+* Wire PrivacyAwareExecutionStrategy into the PZ execution loop: subclass SequentialSingleThreadExecutionStrategy and replace the bare operator(input\_record) call at line 88 with execute\_with\_routing(), then inject the custom strategy via QueryProcessorConfig (bypassing the factory enum, per Option B in OPERATOR\_GRAPH\_NOTES.md §5).  
+* Resolve the Model enum mismatch: operator.model in PZ is a Model enum, not a plain string, so the current model swap silently no-ops for real PZ operators. Fix by either adding an Ollama entry to PZ's constants.py or by constructing the correct enum value from the local model string at swap time.  
+* Run the benchmark suite across three routing granularities (document-level, field-level, operator-level) on the Enron dataset and measure extraction accuracy, filter precision, and quality degradation from local model substitution.  
+* Write the final report, including research question framing, methodology, quantitative results table, and discussion of the quality-privacy tradeoff at different routing granularities.
+
+3\. Results to Date
+
+The project has moved from a purely architectural phase to a working end-to-end detection module. The routing stub now correctly identifies PII in real input records without any human-authored field labels: given an Enron email body containing a name, email address, and phone number, the router returns 'local' with structured detection metadata identifying EMAIL\_ADDRESS and PHONE\_NUMBER entities. The fallback path (field-name heuristics + regex) ensures the system degrades gracefully when Presidio is unavailable or when the NLP model is not installed.
+
+The key architectural result—confirmed by explore\_pipeline.py—is that all information needed for routing is accessible at a single point in the PZ execution stack before any LLM call: operator type, input schema field names and types, depends\_on annotations, generated fields, and the full input record. This makes operator-level routing (routing each operator independently based on what it actually reads) implementable without any changes to PZ source files.
+
+The execute\_with\_routing() wrapper already produces structured logs showing, per operator call: the operator name, input and generated fields, current model, routing destination, chosen model, whether the model was successfully swapped, the detection reason, and a summary of every detected entity with source and preview. This logging will be the primary diagnostic tool during integration testing.
+
+4\. Potential Problems and Mitigations
+
+* Model swap requires a valid PZ Model enum value: \_set\_operator\_model\_if\_possible() currently skips operators whose model is not a plain string, which covers all real PZ LLM operators. The mitigation is to resolve the correct Model enum entry for the local Ollama model (or add one to constants.py) and update the swap function to construct it. This is a targeted fix isolated to one function.  
+* Presidio false-positive rate: Presidio's NLP-based detectors sometimes flag non-PII tokens (e.g., common names in business text). A high false-positive rate would route too many operators locally, degrading output quality. The mitigation is to tune the score\_threshold parameter in AnalyzerEngine.analyze() and evaluate on the Enron dataset before finalizing the threshold. The two-layer fallback design also means we can disable Presidio's name detector independently without disabling the regex patterns for high-precision entities like SSNs.  
+* Local model quality gap: Llama 3.2 produces lower-quality extractions than GPT-4o on structured fields like sender email addresses. If the quality gap is too large, the benchmark will show high privacy at unacceptable accuracy cost. The benchmark across three routing granularities is specifically designed to quantify this tradeoff.  
+* Execution strategy subclassing: PZ's QueryProcessorFactory resolves execution strategies through an Enum, making it slightly awkward to inject a custom subclass without modifying PZ source. The mitigation (Option B in OPERATOR\_GRAPH\_NOTES.md §5) is to construct the custom ExecutionStrategy instance directly and pass it to the QueryProcessor constructor, bypassing the factory enum lookup.
+
+5\. Updated Timeline
+
+The Presidio integration originally targeted for week 9 was completed in week 8 (April 15). The remaining work is the execution strategy wiring, model enum fix, benchmark runs, and report writing.
+
+* Weeks 1–7 (complete): Architecture mapping, logical/physical plan introspection, explore pipeline, initial routing stub with documented integration points.  
+* Week 8 (complete): Presidio integration into PrivacyRouter; Detection/RouteDecision dataclasses; regex/heuristic fallback; best-effort model swap; extended smoke test.  
+* Week 9 (current): Wire PrivacyAwareExecutionStrategy into PZ execution loop; resolve Model enum mismatch; run end-to-end integration test on Enron dataset; confirm routing decisions on real operator calls.  
+* Week 10: Benchmark across document-level, field-level, and operator-level routing granularities; collect extraction accuracy and filter precision metrics; tune Presidio score\_threshold.  
+* Week 11: Final report writing; figures; results table; discussion of quality-privacy tradeoff.
+
+The Presidio integration came in on schedule after the earlier delay from operator graph archaeology. That archaeology time was not wasted—it directly produced OPERATOR\_GRAPH\_NOTES.md and confirmed Option A as the correct hook point, which is what made the integration straightforward once we started it.
+
+6\. Individual Contributions
+
+Person A (Denis):
+
+* Traced the full PZ execution stack from Dataset.sem\_map() and sem\_filter() calls through the Cascades optimizer to the physical operator \_\_call\_\_ invocation, and documented every relevant file and line number in OPERATOR\_GRAPH\_NOTES.md.  
+* Built explore\_pipeline.py: EnronTinyDataset loader, logical plan introspection printer, physical plan field-level introspector, end-to-end execution with output record pretty-printing.  
+* Designed the initial routing\_stub.py: ModelConfig, PrivacyRouter scaffold with documented Presidio integration skeleton, execute\_with\_routing() wrapper with logging.  
+* Identified and documented the four candidate hook points (Options A–D in OPERATOR\_GRAPH\_NOTES.md §5) and made the case for Option A as the recommended approach.  
+* For the remaining weeks: will lead the PrivacyAwareExecutionStrategy wiring, the Model enum fix, and benchmark design.
+
+Person B (Onopre):
+
+* Replaced the PrivacyRouter placeholder with a full two-layer detection implementation: Presidio AnalyzerEngine as the primary detector, plus field-name heuristic and regex fallback covering five entity types (email, phone, SSN, credit card, IP address).  
+* Added Detection and RouteDecision dataclasses for structured logging of every routing decision, including entity type, detection source, confidence score, and field preview.  
+* Implemented \_set\_operator\_model\_if\_possible() for best-effort model swap and extended execute\_with\_routing() with full detection-aware logging.  
+* Extended the smoke test to verify the full detection path with a realistic PII-containing record.  
+* For the remaining weeks: will lead the end-to-end integration testing, Presidio threshold tuning, and benchmark execution.
+
+7\. Questions for Feedback
+
+* Routing granularity benchmark design: We plan to compare document-level routing (route the entire pipeline to local if any PII is detected anywhere in the document), field-level routing (route an operator to local if any of its input fields contains PII), and operator-level routing (route each operator independently based on the fields it actually reads via depends\_on). Is this a fair comparison, or should we add a fourth condition—anonymize-then-cloud—where Presidio anonymizes PII in place before sending the record to GPT-4o?  
+* Evaluation metric for filter quality: For the sem\_filter step (keep emails discussing scheduling/meetings/travel), precision and recall against a human-labeled ground truth would be ideal, but labeling is expensive. Is it acceptable to use GPT-4o's decisions as the gold standard and measure local-model agreement rate instead?  
+* Scope: Is operator-level routing the right primary focus, or would it be more interesting to also implement the 'filter sensitive columns before cloud call' variant and compare the two approaches?
+

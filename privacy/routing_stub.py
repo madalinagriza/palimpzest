@@ -3,6 +3,7 @@ Privacy-aware routing stub for Palimpzest.
 
 Provides:
   - ModelConfig       — local vs. cloud model identifiers
+  - RoutingStats      — per-run aggregate counters for benchmarking
   - PrivacyRouter     — decides "local" or "cloud" per operator
   - execute_with_routing — wraps a single operator call with routing logic
 
@@ -10,16 +11,13 @@ This module is fully importable without runtime errors and requires no
 modifications to PZ source files in src/palimpzest/.
 
 Current behavior:
-  - Tries to use Presidio if installed.
+  - Tries to use Presidio if installed (module-level singleton; init cost paid once).
   - Falls back to lightweight regex / field-name heuristics if Presidio is not
     available.
   - Logs which fields and entity types triggered the decision.
-
-Future work:
-  - Add query-intent awareness ("does this operator actually need the sensitive
-    field?") before routing sensitive-but-irrelevant inputs locally.
-  - Swap `operator.model` for the local model in a PZ-native way once the team
-    settles on the right model enum / config path.
+  - Records aggregate routing stats on router.stats for benchmark reporting.
+  - Swaps operator.model to the local Model instance when routing to "local",
+    handling both plain-string models and PZ Model instances.
 """
 
 from __future__ import annotations
@@ -27,6 +25,7 @@ from __future__ import annotations
 import sys
 import os
 import re
+import threading
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -44,12 +43,18 @@ class ModelConfig:
     """
     Maps the two routing destinations to actual model identifiers.
 
-    local_model  — served locally via Ollama (no data leaves the machine)
-    cloud_model  — served via OpenAI API  (highest quality, but data is sent externally)
+    local_model   — model tag served locally via Ollama (no data leaves the machine)
+    local_api_base — Ollama server base URL
+    cloud_model   — served via OpenAI API (highest quality, data sent externally)
     """
-    local_model: str = "llama3.2"       # Ollama model tag
-    cloud_model: str = "gpt-4o"         # OpenAI model identifier
+    local_model: str = "ollama/llama3.2"
+    local_api_base: str = "http://localhost:11434"
+    cloud_model: str = "gpt-4o"
 
+
+# ---------------------------------------------------------------------------
+# Detection and routing result types
+# ---------------------------------------------------------------------------
 
 @dataclass
 class Detection:
@@ -72,6 +77,69 @@ class RouteDecision:
     reason: str = ""
 
 
+@dataclass
+class RoutingStats:
+    """
+    Aggregate routing counters accumulated across all operator calls in a
+    pipeline run. Attach one instance to a PrivacyRouter and read it after
+    processor.execute() to get the numbers needed for the benchmark table.
+    """
+
+    total: int = 0
+    routed_local: int = 0
+    routed_cloud: int = 0
+    detections_by_entity: dict[str, int] = field(default_factory=dict)
+
+    def record(self, decision: RouteDecision) -> None:
+        """Update counters from a single RouteDecision."""
+        self.total += 1
+        if decision.destination == "local":
+            self.routed_local += 1
+        else:
+            self.routed_cloud += 1
+        for d in decision.detections:
+            self.detections_by_entity[d.entity_type] = (
+                self.detections_by_entity.get(d.entity_type, 0) + 1
+            )
+
+    def summary(self) -> str:
+        """One-line summary suitable for logging or a results table."""
+        if self.total == 0:
+            return "no operators processed"
+        pct = 100.0 * self.routed_local / self.total
+        top = sorted(self.detections_by_entity.items(), key=lambda x: -x[1])[:5]
+        return (
+            f"total={self.total}  local={self.routed_local} ({pct:.1f}%)  "
+            f"cloud={self.routed_cloud}  top_entities={top}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Module-level Presidio singleton
+# Constructing AnalyzerEngine takes ~1-2 s (spaCy model load).  We pay that
+# cost exactly once per process, not once per PrivacyRouter instance.
+# ---------------------------------------------------------------------------
+
+_ANALYZER_ENGINE = None
+_ANALYZER_LOCK = threading.Lock()
+
+
+def _get_shared_analyzer():
+    """Return the shared AnalyzerEngine, initializing it on first call."""
+    global _ANALYZER_ENGINE
+    if _ANALYZER_ENGINE is not None:
+        return _ANALYZER_ENGINE
+    with _ANALYZER_LOCK:
+        if _ANALYZER_ENGINE is not None:   # double-checked inside lock
+            return _ANALYZER_ENGINE
+        try:
+            from presidio_analyzer import AnalyzerEngine
+            _ANALYZER_ENGINE = AnalyzerEngine()
+        except Exception:
+            _ANALYZER_ENGINE = None        # Presidio not installed — use fallback
+    return _ANALYZER_ENGINE
+
+
 # ---------------------------------------------------------------------------
 # Privacy Router
 # ---------------------------------------------------------------------------
@@ -82,12 +150,13 @@ class PrivacyRouter:
 
     Routing policy (v1):
       - inspect the actual input values of the fields the operator reads
+        (operator.get_input_fields() already respects depends_on)
       - if any field appears to contain PII -> route to "local"
       - otherwise -> route to "cloud"
 
     The router prefers Presidio when available, but still works without it using
-    field-name and regex heuristics. This makes the file importable even before
-    the privacy extra is installed.
+    field-name and regex heuristics.  All routing decisions are tallied in
+    self.stats for post-run benchmark reporting.
     """
 
     _SENSITIVE_FIELD_HINTS = {
@@ -118,25 +187,8 @@ class PrivacyRouter:
 
     def __init__(self, config: ModelConfig | None = None):
         self.config = config or ModelConfig()
-        self._analyzer = None
-        self._presidio_error: Exception | None = None
         self.last_decision: RouteDecision | None = None
-
-    def _get_analyzer(self):
-        """Lazily construct Presidio's AnalyzerEngine if available."""
-        if self._analyzer is not None:
-            return self._analyzer
-        if self._presidio_error is not None:
-            return None
-
-        try:
-            from presidio_analyzer import AnalyzerEngine
-
-            self._analyzer = AnalyzerEngine()
-        except Exception as exc:  # pragma: no cover - environment-dependent
-            self._presidio_error = exc
-            self._analyzer = None
-        return self._analyzer
+        self.stats = RoutingStats()
 
     @staticmethod
     def _safe_preview(value: str, limit: int = 60) -> str:
@@ -159,7 +211,7 @@ class PrivacyRouter:
 
     def _detect_with_presidio(self, field_name: str, text: str) -> list[Detection]:
         """Run Presidio on a field value, returning normalized detections."""
-        analyzer = self._get_analyzer()
+        analyzer = _get_shared_analyzer()
         if analyzer is None or not text.strip():
             return []
 
@@ -224,6 +276,9 @@ class PrivacyRouter:
         """
         Inspect the fields an operator will read and build a routing decision.
 
+        get_input_fields() on a real PZ operator already respects depends_on,
+        so only the fields this operator actually reads are scanned.
+
         Args:
             operator:     PZ PhysicalOperator-like object.
             input_fields: List of field names the operator reads.
@@ -246,19 +301,22 @@ class PrivacyRouter:
             detections.extend(field_detections)
 
         if detections:
-            return RouteDecision(
+            decision = RouteDecision(
                 destination="local",
                 detections=detections,
                 inspected_fields=inspected_fields,
                 reason="detected sensitive data in operator inputs",
             )
+        else:
+            decision = RouteDecision(
+                destination="cloud",
+                detections=[],
+                inspected_fields=inspected_fields,
+                reason="no sensitive data detected in operator inputs",
+            )
 
-        return RouteDecision(
-            destination="cloud",
-            detections=[],
-            inspected_fields=inspected_fields,
-            reason="no sensitive data detected in operator inputs",
-        )
+        self.stats.record(decision)
+        return decision
 
     def route(self, operator, input_fields: list[str], input_record: Any | None = None) -> str:
         """Compatibility wrapper returning only the destination string."""
@@ -268,41 +326,62 @@ class PrivacyRouter:
 
 
 # ---------------------------------------------------------------------------
-# Execution wrapper
+# Model swap helper
 # ---------------------------------------------------------------------------
 
-def _set_operator_model_if_possible(operator, chosen_model: str) -> bool:
+def _set_operator_model_if_possible(
+    operator,
+    chosen_model: str,
+    api_base: str = "http://localhost:11434",
+) -> bool:
     """
     Best-effort model override.
 
-    This intentionally stays conservative: if the operator doesn't expose a
-    writable `model` attribute in a compatible format, we leave it untouched.
+    Handles two cases:
+      1. operator.model is a plain string  — overwrite directly.
+      2. operator.model is a PZ Model instance — construct a new Model via
+         the vLLM/api_base path so PZ's generator can reach the local server.
+
+    Returns True if the swap succeeded, False otherwise.
     """
     if not hasattr(operator, "model"):
         return False
 
     current_model = getattr(operator, "model")
 
-    # Common/simple case: the operator stores a plain string.
+    # Case 1: plain string
     if isinstance(current_model, str):
         setattr(operator, "model", chosen_model)
         return True
 
-    # Anything more complicated is PZ-internal; skip rather than risk breaking.
+    # Case 2: PZ Model instance — use the vLLM constructor path
+    try:
+        from palimpzest.constants import Model as PZModel
+        if isinstance(current_model, PZModel):
+            new_model = PZModel(chosen_model, api_base=api_base)
+            setattr(operator, "model", new_model)
+            return True
+    except Exception:
+        pass
+
     return False
 
 
+# ---------------------------------------------------------------------------
+# Execution wrapper
+# ---------------------------------------------------------------------------
 
 def execute_with_routing(operator, input_record, router: PrivacyRouter):
     """
     Wrap a single operator execution with privacy-aware model routing.
 
-    This function:
-      1. Inspects the operator's input fields and actual input values.
-      2. Calls router.route() to determine the execution venue.
-      3. Logs the routing decision, trigger fields, and entity types.
-      4. Best-effort swaps operator.model when feasible.
-      5. Executes the operator via operator(input_record).
+    Steps:
+      1. If operator has no model (scan, limit) — pass through directly.
+      2. Get the fields this operator actually reads (respects depends_on).
+      3. Call router.inspect() to detect PII and build a RouteDecision.
+      4. Attempt to swap operator.model to local or cloud model.
+      5. Log the full decision.
+      6. Execute operator(input_record) and return the result.
 
     Args:
         operator:      A PZ PhysicalOperator instance.
@@ -312,22 +391,26 @@ def execute_with_routing(operator, input_record, router: PrivacyRouter):
     Returns:
         DataRecordSet — the output from operator(input_record).
     """
-    # Gather field context for routing decision
+    # Non-LLM operators (scans, limits) have no model — pass through.
+    if operator.get_model_name() is None:
+        return operator(input_record)
+
     input_fields: list[str] = operator.get_input_fields()
     generated_fields: list[str] = operator.generated_fields
     op_name: str = operator.op_name()
     model_name = operator.get_model_name()
-    # Ask the router where this operator should run
+
     decision = router.inspect(operator, input_fields, input_record=input_record)
     router.last_decision = decision
     destination = decision.destination
 
-    # Log the decision
     chosen_model = (
         router.config.cloud_model if destination == "cloud"
         else router.config.local_model
     )
-    model_swapped = _set_operator_model_if_possible(operator, chosen_model)
+    model_swapped = _set_operator_model_if_possible(
+        operator, chosen_model, api_base=router.config.local_api_base
+    )
 
     detection_summary = [
         {
@@ -351,9 +434,7 @@ def execute_with_routing(operator, input_record, router: PrivacyRouter):
         f"  |  detections={detection_summary}"
     )
 
-    # Execute through PZ's standard path (no model swap yet)
     record_set = operator(input_record)
-
     return record_set
 
 
@@ -362,13 +443,11 @@ def execute_with_routing(operator, input_record, router: PrivacyRouter):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Verify the module is importable and the classes instantiate correctly
     config = ModelConfig()
-    print(f"ModelConfig: local={config.local_model!r}  cloud={config.cloud_model!r}")
+    print(f"ModelConfig: local={config.local_model!r}  api_base={config.local_api_base!r}  cloud={config.cloud_model!r}")
 
     router = PrivacyRouter(config)
 
-    # Simulate a call with a dummy operator-like object
     class _FakeOperator:
         generated_fields = ["subject", "sender"]
         model = "gpt-4o"
@@ -395,7 +474,18 @@ if __name__ == "__main__":
 
     decision = router.inspect(fake_op, fake_op.get_input_fields(), input_record=fake_record)
     print(f"Routing decision for {fake_op.op_name()!r}: {decision.destination!r}")
-
     assert decision.destination == "local", "Expected 'local' because test record contains obvious PII"
+
+    # Verify stats are recorded
+    assert router.stats.total == 1
+    assert router.stats.routed_local == 1
+    assert router.stats.routed_cloud == 0
+    print(f"Stats after one call: {router.stats.summary()}")
+
+    # Verify model swap works for plain-string model
+    swapped = _set_operator_model_if_possible(fake_op, config.local_model, api_base=config.local_api_base)
+    assert swapped, "Expected model swap to succeed for plain-string model"
+    assert fake_op.model == config.local_model
+
     execute_with_routing(fake_op, fake_record, router)
     print("routing_stub.py: all checks passed.")
