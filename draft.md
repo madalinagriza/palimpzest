@@ -6,79 +6,86 @@ April 2026
 
 1\. Project Overview
 
-This project implements privacy-aware model routing inside Palimpzest (PZ), a semantic query processing framework that uses LLMs as first-class query operators. The core insight is that not all data processed by a PZ pipeline is equally sensitive: an email's subject line and scheduling details carry very different privacy risks than a sender's name, phone number, or Social Security Number. The current PZ architecture routes every operator call to whichever cloud model the optimizer selects (typically GPT-4o), regardless of whether the fields being processed contain PII. Our system adds a lightweight classification and routing layer that intercepts each operator call before the LLM is invoked, detects PII in the relevant fields, and redirects sensitive operators to a locally-served model (Llama via Ollama) so that private data never leaves the machine.
+This project adds privacy-aware model routing to Palimpzest (PZ), a semantic query processing framework that uses LLMs as first-class query operators. PZ currently sends every operator call to whichever cloud model the optimizer selects (typically GPT-4o), regardless of whether the fields being processed contain PII. Our system inserts a lightweight routing layer that intercepts each operator call before the LLM is invoked, detects PII in the fields that operator actually reads, and redirects to an appropriate execution path. We implement three routing conditions: (1) sensitive data required by the query → local Llama via Ollama; (2) sensitive data present but not required → Presidio anonymizes in place, then cloud; (3) no sensitive data → cloud as-is.
+
+The primary benchmark dataset is a controlled resume corpus (14,566 records) with four PII tiers — no PII, name+email only, natural PII, injected SSN+DOB — giving ground-truth labels for every routing decision. Three research questions drive the evaluation: (Q1) At what routing granularity is the quality-privacy tradeoff best — document, field, or operator level? (Q2) Which PII detection backend (Presidio, DeBERTa-v3, regex) produces the best routing decisions? (Q3) Does query-intent awareness — routing based on whether the operator actually needs the sensitive field — improve quality without sacrificing privacy?
 
 2\. Project Status
 
 2.1 Completed Tasks
 
-* Mapped the full Palimpzest operator graph architecture, including how logical plans (Dataset chains) are constructed, how the Cascades-style optimizer converts them to physical plans, and where model selection is currently baked in at optimization time.
-* Identified the best hook point for privacy routing: the execution loop inside SequentialSingleThreadExecutionStrategy.\_execute\_plan() (line 88), where both the operator state and input record are simultaneously accessible before any LLM call is made.
-* Built a working exploration pipeline (explore\_pipeline.py) that loads Enron email testdata, runs a sem\_map to extract subject and sender fields followed by a sem\_filter for scheduling-related content, and prints both the logical and physical plan with full field introspection. This pipeline confirmed that operator.get\_input\_fields(), operator.generated\_fields, and operator.input\_schema.model\_fields are all accessible at execution time. Notably, get\_input\_fields() already respects the depends\_on annotation — it returns only the fields a given operator actually reads, not all fields in the input schema.
-* Authored the initial routing stub (routing\_stub.py) containing the ModelConfig dataclass (mapping local/cloud model identifiers), the PrivacyRouter class with a documented route() interface, and the execute\_with\_routing() wrapper that logs routing decisions and calls the operator through PZ's standard \_\_call\_\_ path.
-* Documented the planned Presidio integration point inside PrivacyRouter.route(), including the exact API call pattern (AnalyzerEngine.analyze()), install instructions, and the rationale for field-value scanning over field-name heuristics.
-* Integrated Microsoft Presidio into PrivacyRouter: replaced the hardcoded 'always cloud' placeholder with a real two-layer detector. The primary layer runs Presidio's AnalyzerEngine on each field value; the fallback layer uses field-name heuristics (a set of 14 sensitive token patterns such as 'email', 'ssn', 'credit\_card') and regex patterns (email addresses, US phone numbers, SSNs, credit card numbers, IP addresses). Detection results are captured in structured Detection and RouteDecision dataclasses.
-* Moved Presidio's AnalyzerEngine construction to a module-level singleton (\_get\_shared\_analyzer()). The engine takes ~1–2 seconds to initialize due to spaCy model loading; constructing it once per process rather than once per PrivacyRouter instance eliminates redundant startup cost across pipeline runs.
-* Added RoutingStats dataclass to PrivacyRouter (router.stats). Every call to inspect() records whether the operator was routed local or cloud, and which entity types triggered the decision. After processor.execute() completes, router.stats.summary() returns a one-line string with counts and top entity types — the primary data source for the benchmark results table.
-* Fixed the model swap for real PZ operators. PZ stores operator.model as a Model instance (not a plain string), so the previous \_set\_operator\_model\_if\_possible() silently no-oped for all LLM operators. The fix constructs a new Model(chosen\_model, api\_base=local\_api\_base) via PZ's vLLM constructor path, which handles locally-served models regardless of whether the model ID appears in PZ's curated metrics registry. ModelConfig now exposes a local\_api\_base field (default: http://localhost:11434) alongside the model identifiers.
-* Wired privacy routing into the PZ execution loop via PrivacyAwareExecutionStrategy (privacy\_execution\_strategy.py). This subclasses SequentialSingleThreadExecutionStrategy and overrides \_execute\_plan(), replacing the bare operator(input\_record) call with execute\_with\_routing() for any operator that makes LLM calls. Non-LLM operators (scans, limits) are passed through unchanged. A convenience factory function create\_privacy\_processor(dataset, config, router) wraps QueryProcessorFactory.create\_processor() and swaps in the privacy strategy without modifying any PZ source file.
+* Mapped the full PZ operator graph architecture: how logical plans (Dataset chains) are constructed, how the Cascades-style optimizer converts them to physical plans, and where model selection is baked in at optimization time. Documented every relevant file and line number in OPERATOR\_GRAPH\_NOTES.md.
+* Identified the best execution hook point: SequentialSingleThreadExecutionStrategy.\_execute\_plan() line 88, where both the operator state and the full input record are accessible before any LLM call.
+* Built explore\_pipeline.py on the Enron dataset to confirm that operator.get\_input\_fields() respects depends\_on (returns only the fields an operator actually reads), and that input/output schemas and generated fields are all introspectable at runtime without modifying PZ source.
+* Implemented routing\_stub.py: ModelConfig, two-layer PrivacyRouter (Presidio primary + field-name heuristic/regex fallback), Detection/RouteDecision dataclasses, RoutingStats (aggregates local/cloud counts and entity-type breakdown per run for the benchmark table), module-level Presidio singleton, fixed model swap for real PZ Model instances via the vLLM constructor path, and execute\_with\_routing() wrapper with structured logging.
+* Built privacy\_execution\_strategy.py: PrivacyAwareExecutionStrategy subclasses SequentialSingleThreadExecutionStrategy and replaces the bare operator(input\_record) call with execute\_with\_routing() for LLM operators; create\_privacy\_processor(dataset, config, router) is a drop-in factory — no PZ source files modified.
+* Built the resume PII dataset pipeline (build\_resumes\_clean.py → reshape\_pii.py → format\_resumes.py): merged 13,389 HuggingFace resumes and 2,483 GitHub PDF resumes into 14,566 deduplicated records; stratified into four PII groups (none: 1,000; low: 1,000; natural: 10,000; high: 2,566 with injected SSN and DOB via Faker); applied six formatting templates (classic, modern, minimal, academic, compact, creative) to vary surface presentation.
+* Ran the first end-to-end experiment (demos/resume-pii-demo.py): 20-record stratified sample (5 per PII group) through a sem\_filter operator asking llama3.2 (Ollama, CPU) to identify records containing PII. Collected precision, recall, and latency.
 
 2.2 Open Tasks
 
-* Run the benchmark suite (owned by Person C): execute the end-to-end pipeline across three routing granularities (document-level, field-level, operator-level) on the Enron dataset, using Person C's PII-injected test data and query labels, and measure extraction accuracy and filter precision against the cloud baseline reference scores.
-* Write the final report, including research question framing, methodology description, quantitative results table, and discussion of the quality-privacy tradeoff at different routing granularities.
+* Collect cloud baseline: run the same sem\_filter and sem\_map tasks on the resume dataset with GPT-4o to establish reference F1 scores for each PII group and template. This is the denominator for measuring quality loss from local routing.
+* Implement and benchmark the three routing conditions end-to-end using create\_privacy\_processor and the resume dataset: (1) local routing, (2) anonymize-then-cloud, (3) cloud-as-is. Compare across document-level, field-level, and operator-level granularities.
+* Evaluate PII detection backends for Q2: compare Presidio, DeBERTa-v3, and the regex-only fallback on the resume dataset's ground-truth PII labels.
+* Implement and test query-intent awareness for Q3: add a depends\_on–driven check that skips PII detection for fields the operator does not read, and test whether routing to cloud with anonymization is safe when the query is insensitive to the PII field.
+* Write the final report: three-section structure mapping to Q1/Q2/Q3, results tables, and discussion of the quality-privacy tradeoff.
 
 3\. Results to Date
 
-The project has progressed from a purely architectural phase through detection implementation and into a fully wired end-to-end integration. The system is now runnable: a caller can replace the standard QueryProcessorFactory pipeline with create\_privacy\_processor(dataset, config) and get privacy-routed execution with no PZ source modifications.
+The routing infrastructure is complete and end-to-end runnable. The first experimental result comes from Person C's sem\_filter run on 20 stratified resume records using llama3.2 (3B params, CPU inference):
 
-The key architectural result — confirmed by explore\_pipeline.py — remains that all information needed for routing is accessible at a single point in the PZ execution stack before any LLM call: operator type, input schema field names and types, depends\_on annotations, generated fields, and the full input record. The implementation exploits this by intercepting at exactly that point in PrivacyAwareExecutionStrategy.\_execute\_plan().
+| PII Group | Records | Kept (detected PII) | Expected |
+|-----------|---------|---------------------|----------|
+| none | 5 | 0 | 0 |
+| low | 5 | 0 | 0 |
+| natural | 5 | 1 | 5 |
+| high | 5 | 0 | 5 |
+| **Total** | **20** | **1** | **10** |
 
-The routing stub correctly identifies PII in real input records: given an Enron email body containing a name, email address, and phone number, the router returns 'local' with structured detection metadata. The fallback path (field-name heuristics and regex) ensures graceful degradation when Presidio is unavailable.
+True negative rate: 10/10 (100%). True positive rate: 1/10 (10%). The local model correctly rejected all records with no PII but missed 9 of 10 containing phone numbers, addresses, and injected SSNs. Per-record latency was ~33 seconds on CPU. This motivates using a dedicated detector (Presidio/regex) for routing decisions rather than the LLM itself, and motivates GPU inference for the full benchmark.
 
-The execute\_with\_routing() wrapper now produces structured logs per operator call and updates router.stats. After a pipeline run, router.stats.summary() gives the routing breakdown (e.g., "total=10 local=4 (40.0%) cloud=6 top\_entities=[('EMAIL\_ADDRESS', 3), ('PHONE\_NUMBER', 2)]") directly usable in the results table. The model swap now works for real PZ operators via the vLLM constructor path.
+After any pipeline run, router.stats.summary() provides a one-line benchmark-ready string (e.g., "total=10 local=4 (40.0%) cloud=6 top\_entities=[('PHONE\_NUMBER', 3), ('US\_SSN', 2)]").
 
 4\. Potential Problems and Mitigations
 
-* Presidio false-positive rate: Presidio's NLP-based detectors sometimes flag non-PII tokens (e.g., common names in business text). A high false-positive rate would route too many operators locally, degrading output quality. The mitigation is to tune the score\_threshold parameter in AnalyzerEngine.analyze() and evaluate on the Enron dataset before finalizing the threshold.
-* Local model quality gap: Llama 3.2 produces lower-quality extractions than GPT-4o on structured fields like sender email addresses. The benchmark across three routing granularities is specifically designed to quantify this tradeoff and will be informed by Person C's cloud baseline reference scores.
-* Ollama availability during benchmarks: The model swap now correctly constructs a PZ Model pointing at the local Ollama server (http://localhost:11434). If Ollama is not running when an operator is routed locally, the operator call will fail. The mitigation is to confirm Ollama is serving llama3.2 before each benchmark run.
+* Local model quality gap is now empirically confirmed: llama3.2 recall on the sem\_filter PII detection task is 10%. This does not block the routing system (routing decisions are made by Presidio/regex on known labels, not by the LLM), but it means the downstream extraction quality for locally-routed records may degrade. Mitigation: the benchmark will measure this degradation explicitly across PII groups and report it alongside the routing breakdown.
+* Presidio false-positive rate on resumes: resume text contains many names and dates that are not PII in context (section headers misidentified as names, year ranges matching phone patterns). Mitigation: tune score\_threshold, and consider disabling the PERSON detector in favor of structural PII types (SSN, phone, email) for the routing decision.
+* CPU inference latency: ~33 seconds per record for llama3.2 on CPU makes full-dataset benchmarking impractical. Mitigation: use a machine with GPU access for the benchmark runs, or reduce the sample size to a representative subset.
+* Routing condition 2 (anonymize-then-cloud) depends on Presidio's anonymizer preserving enough semantic content for GPT-4o to answer the query. Mitigation: pilot on 10 records before full benchmark.
 
 5\. Updated Timeline
 
-The execution strategy wiring and model enum fix originally targeted for week 9 are now complete (April 16). The remaining work is Person C's benchmark runs and the final report.
+* Weeks 1–7 (complete): Architecture mapping, PZ execution stack documentation, explore pipeline, initial routing stub.
+* Week 8 (complete): Presidio integration, Detection/RouteDecision dataclasses, regex/heuristic fallback, resume dataset pipeline, first sem\_filter experiment.
+* Week 9 (complete): RoutingStats, Presidio singleton, Model enum swap fix, PrivacyAwareExecutionStrategy + create\_privacy\_processor, project plan finalized across all three research questions.
+* Week 10: Cloud baseline collection (GPT-4o on resume sem\_filter + sem\_map tasks); benchmark of three routing conditions × three granularities; PII detector comparison (Q2); query-intent routing pilot (Q3).
+* Week 11: Final report writing, results tables, figures, discussion.
 
-* Weeks 1–7 (complete): Architecture mapping, logical/physical plan introspection, explore pipeline, initial routing stub with documented integration points.
-* Week 8 (complete): Presidio integration into PrivacyRouter; Detection/RouteDecision dataclasses; regex/heuristic fallback; best-effort model swap stub; extended smoke test.
-* Week 9 (complete): Module-level Presidio singleton; RoutingStats; fixed model swap for PZ Model instances; PrivacyAwareExecutionStrategy wired into PZ execution loop; create\_privacy\_processor convenience factory.
-* Week 10: Person C runs benchmark across document-level, field-level, and operator-level routing granularities using PII-injected data and query labels; cloud baseline reference scores collected; Presidio score\_threshold tuned on Enron false-positive rate.
-* Week 11: Final report writing; figures; results table; discussion of quality-privacy tradeoff.
+The main change from the original timeline is scope expansion from one research question to three, and from Enron emails to a 14,566-record controlled corpus with ground-truth PII labels — a deliberate choice to make results more defensible.
 
 6\. Individual Contributions
 
 Person A (Denis):
 
-* Traced the full PZ execution stack from Dataset.sem\_map() and sem\_filter() calls through the Cascades optimizer to the physical operator \_\_call\_\_ invocation, and documented every relevant file and line number in OPERATOR\_GRAPH\_NOTES.md.
-* Built explore\_pipeline.py: EnronTinyDataset loader, logical plan introspection printer, physical plan field-level introspector, end-to-end execution with output record pretty-printing. Confirmed that get\_input\_fields() respects depends\_on at the physical operator level.
-* Designed the initial routing\_stub.py: ModelConfig, PrivacyRouter scaffold with documented Presidio integration skeleton, execute\_with\_routing() wrapper with logging.
-* Identified and documented the four candidate hook points (Options A–D in OPERATOR\_GRAPH\_NOTES.md §5) and made the case for Option A as the recommended approach.
-* Added RoutingStats dataclass to routing\_stub.py for benchmark data collection; moved Presidio initialization to a module-level singleton to eliminate redundant startup cost; fixed \_set\_operator\_model\_if\_possible() to handle real PZ Model instances via the vLLM constructor path; added local\_api\_base to ModelConfig.
-* Built privacy\_execution\_strategy.py: PrivacyAwareExecutionStrategy subclass that wires execute\_with\_routing() into PZ's execution loop, and create\_privacy\_processor() convenience factory for drop-in use.
+* PZ architecture reverse-engineering and documentation (OPERATOR\_GRAPH\_NOTES.md); explore\_pipeline.py; initial routing\_stub.py design.
+* Iterative improvements to routing\_stub.py: RoutingStats, Presidio singleton, fixed Model enum swap, local\_api\_base.
+* privacy\_execution\_strategy.py: PrivacyAwareExecutionStrategy and create\_privacy\_processor factory (wiring routing into PZ's execution loop without modifying PZ source).
+* Will lead Q1 benchmarks (routing granularity comparison) in week 10.
 
 Person B (Onopre):
 
-* Replaced the PrivacyRouter placeholder with a full two-layer detection implementation: Presidio AnalyzerEngine as the primary detector, plus field-name heuristic and regex fallback covering five entity types (email, phone, SSN, credit card, IP address).
-* Added Detection and RouteDecision dataclasses for structured logging of every routing decision, including entity type, detection source, confidence score, and field preview.
-* Implemented initial \_set\_operator\_model\_if\_possible() and extended execute\_with\_routing() with full detection-aware logging.
-* Extended the smoke test to verify the full detection path with a realistic PII-containing record.
+* Full Presidio integration into PrivacyRouter (two-layer detector: Presidio + heuristic/regex fallback), Detection/RouteDecision dataclasses, detection-aware logging, extended smoke test.
+* Will lead Q2 (PII detector comparison: Presidio vs DeBERTa-v3 vs regex) and Q3 track 1 (query-intent routing implementation) in week 10.
 
-Person C:
+Person C (Madalina):
 
-* Responsible for PII injection into test data, query labeling, cloud baseline collection (reference scores across all tasks), and routing × data × query-intent benchmarking.
-* These tasks consume the infrastructure built by Persons A and B: the benchmark runner will call create\_privacy\_processor() to get routed execution and read router.stats.summary() for routing breakdown metrics.
+* Resume PII dataset pipeline (build\_resumes\_clean.py → reshape\_pii.py → format\_resumes.py): 14,566 deduplicated records across four PII groups with SSN/DOB injection and six formatting templates. Documented in data/phase1\_report.md.
+* First end-to-end experiment (demos/resume-pii-demo.py): sem\_filter on 20 stratified records with llama3.2; results in data/sem\_filter\_report.md.
+* Project plan: defined research questions, routing logic, agreed metrics (accuracy, precision, recall, F1, LLM judge), failure-mode threshold (10% F1 drop), and all design decisions.
+* Will lead cloud baseline and full benchmark execution in week 10.
 
 7\. Questions for Feedback
 
-* Routing granularity benchmark design: We plan to compare document-level routing (route the entire pipeline to local if any PII is detected anywhere in the document), field-level routing (route an operator to local if any of its input fields contains PII), and operator-level routing (route each operator independently based on the fields it actually reads via depends\_on). Is this a fair comparison, or should we add a fourth condition—anonymize-then-cloud—where Presidio anonymizes PII in place before sending the record to GPT-4o?
-* Evaluation metric for filter quality: For the sem\_filter step (keep emails discussing scheduling/meetings/travel), precision and recall against a human-labeled ground truth would be ideal, but labeling is expensive. Is it acceptable to use GPT-4o's decisions as the gold standard and measure local-model agreement rate instead?
-* Presidio threshold tuning: Given that Enron emails contain many real personal names that are not PII in context (e.g., executive names used in a business capacity), should we disable Presidio's PERSON detector and rely only on structural PII types (email, phone, SSN, credit card) to reduce false-positive routing to local?
+* Low local-model recall (10%): Our first result shows llama3.2 fails to detect PII in 9 of 10 records containing phone numbers and SSNs. Should we treat the LLM-based sem\_filter purely as the task being evaluated (not the routing decision maker), and always use Presidio/regex for the routing decision? Or is this finding itself a contribution worth reporting — that naive local-LLM routing is insufficient and a dedicated detector is needed?
+* Routing condition 2 scope: Anonymize-then-cloud requires Presidio's anonymizer to produce text that preserves enough semantic content for GPT-4o to answer the query correctly. Is it acceptable to scope this condition to only the high-PII group, where SSN/DOB fields are injected and clearly separable from query-relevant content, rather than applying it across all groups?
+* Q3 feasibility: Query-intent routing (routing based on whether the operator's depends\_on annotation includes a PII field) is architecturally simple given our implementation — get\_input\_fields() already respects depends\_on. But defining ground-truth labels for "does this query need this field" requires manual annotation. Is it acceptable to use the depends\_on values set by the pipeline author as a proxy for query intent, without additional annotation?
