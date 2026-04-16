@@ -40,6 +40,8 @@ dependencies = [
     "together>=1.5.5",
     "tqdm~=4.66.1",
     "rich[jupyter]>=13.9.2",
+    "presidio-analyzer",
+    "presidio-anonymizer",
 ]
 classifiers=[
     "Development Status :: 4 - Beta",  # Change as appropriate

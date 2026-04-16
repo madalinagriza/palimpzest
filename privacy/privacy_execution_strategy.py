@@ -47,7 +47,7 @@ from palimpzest.query.optimizer.plan import PhysicalPlan
 from palimpzest.query.processor.config import QueryProcessorConfig
 from palimpzest.query.processor.query_processor_factory import QueryProcessorFactory
 
-from routing_stub import PrivacyRouter, execute_with_routing
+from routing_stub import PrivacyRouter, RoutingGranularity, RouteDecision, execute_with_routing
 
 logger = logging.getLogger(__name__)
 
@@ -56,19 +56,74 @@ class PrivacyAwareExecutionStrategy(SequentialSingleThreadExecutionStrategy):
     """
     Sequential execution strategy with a privacy routing hook.
 
-    For every operator that makes LLM calls (i.e. operator.get_model_name()
-    is not None), the call is routed through execute_with_routing() which:
-      - runs PII detection on the operator's input fields
-      - optionally swaps operator.model to the local Ollama model
-      - logs the routing decision
+    Supports three routing granularities (RoutingGranularity):
+      OPERATOR  — scan only get_input_fields() per operator call (default)
+      FIELD     — scan all input_schema fields per operator call
+      DOCUMENT  — scan all fields once per record, reuse for all operators
 
+    For every operator that makes LLM calls (get_model_name() is not None),
+    execute_with_routing() detects PII, optionally swaps the model, and logs.
     Non-LLM operators (scans, limits) are passed through unchanged.
-    Aggregate and join operators are handled identically to the parent class.
     """
 
-    def __init__(self, *args, router: PrivacyRouter | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        router: PrivacyRouter | None = None,
+        granularity: RoutingGranularity = RoutingGranularity.OPERATOR,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.router = router or PrivacyRouter()
+        self.granularity = granularity
+        # Cache for document-level routing: record_key → RouteDecision
+        self._doc_cache: dict[str, RouteDecision] = {}
+
+    @staticmethod
+    def _record_key(input_record) -> str:
+        """Stable key for a record: uses record_id if present, else object id."""
+        return str(getattr(input_record, "record_id", None) or id(input_record))
+
+    def _invoke_operator(self, operator, input_record):
+        """
+        Route and invoke a single operator according to self.granularity.
+        Non-LLM operators are always passed through directly.
+        """
+        if operator.get_model_name() is None:
+            return operator(input_record)
+
+        if self.granularity == RoutingGranularity.OPERATOR:
+            # Default: scan only the fields this operator reads (respects depends_on)
+            return execute_with_routing(operator, input_record, self.router)
+
+        elif self.granularity == RoutingGranularity.FIELD:
+            # Scan all fields in the input schema regardless of depends_on
+            all_fields = (
+                list(operator.input_schema.model_fields)
+                if operator.input_schema is not None
+                else operator.get_input_fields()
+            )
+            return execute_with_routing(
+                operator, input_record, self.router,
+                input_fields_override=all_fields,
+            )
+
+        else:  # DOCUMENT
+            # Scan all fields once per record; reuse decision for all operators
+            key = self._record_key(input_record)
+            if key not in self._doc_cache:
+                all_fields = (
+                    list(operator.input_schema.model_fields)
+                    if operator.input_schema is not None
+                    else operator.get_input_fields()
+                )
+                self._doc_cache[key] = self.router.inspect(
+                    operator, all_fields, input_record=input_record
+                )
+            return execute_with_routing(
+                operator, input_record, self.router,
+                cached_decision=self._doc_cache[key],
+            )
 
     def _execute_plan(
         self,
@@ -155,9 +210,8 @@ class PrivacyAwareExecutionStrategy(SequentialSingleThreadExecutionStrategy):
                 for input_record in input_queues[unique_full_op_id][source_unique_full_op_id]:
 
                     # Privacy hook: route LLM operators; pass others through.
-                    # execute_with_routing short-circuits to operator(input_record)
-                    # when get_model_name() is None, so this is always safe.
-                    record_set = execute_with_routing(operator, input_record, self.router)
+                    # _invoke_operator dispatches to the correct granularity.
+                    record_set = self._invoke_operator(operator, input_record)
 
                     records.extend(record_set.data_records)
                     record_op_stats.extend(record_set.record_op_stats)
@@ -197,6 +251,7 @@ def create_privacy_processor(
     dataset,
     config: QueryProcessorConfig | None = None,
     router: PrivacyRouter | None = None,
+    granularity: RoutingGranularity = RoutingGranularity.OPERATOR,
 ):
     """
     Build a QueryProcessor whose execution strategy is PrivacyAwareExecutionStrategy.
@@ -210,7 +265,8 @@ def create_privacy_processor(
     Args:
         dataset: The PZ Dataset (logical plan) to process.
         config:  QueryProcessorConfig; if None, PZ defaults are used.
-        router:  PrivacyRouter instance; if None, a default one is created.
+        router:       PrivacyRouter instance; if None, a default one is created.
+        granularity:  RoutingGranularity (OPERATOR/FIELD/DOCUMENT); default OPERATOR.
 
     Returns:
         QueryProcessor with PrivacyAwareExecutionStrategy installed.
@@ -226,6 +282,7 @@ def create_privacy_processor(
     existing = processor.execution_strategy
     privacy_strategy = PrivacyAwareExecutionStrategy(
         router=router,
+        granularity=granularity,
         scan_start_idx=getattr(existing, "scan_start_idx", 0),
         max_workers=getattr(existing, "max_workers", 1),
         batch_size=getattr(existing, "batch_size", None),

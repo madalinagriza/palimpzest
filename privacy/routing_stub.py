@@ -28,10 +28,33 @@ import re
 import threading
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 # Ensure the PZ src is importable when this module is imported directly.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+
+# ---------------------------------------------------------------------------
+# Routing granularity
+# ---------------------------------------------------------------------------
+
+class RoutingGranularity(str, Enum):
+    """
+    Controls how broadly PII is scanned before routing a single operator call.
+
+    OPERATOR  — scan only the fields the operator actually reads (get_input_fields(),
+                which respects depends_on). Most precise; default.
+    FIELD     — scan all fields present in the operator's input_schema, ignoring
+                depends_on. Routes to local if any input field has PII, even if
+                this operator doesn't need it.
+    DOCUMENT  — scan all fields of the raw record once per document; cache the
+                local/cloud decision and reuse it for every operator that touches
+                that record. Coarsest: one PII hit anywhere → whole pipeline local.
+    """
+    OPERATOR = "operator"
+    FIELD    = "field"
+    DOCUMENT = "document"
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +70,7 @@ class ModelConfig:
     local_api_base — Ollama server base URL
     cloud_model   — served via OpenAI API (highest quality, data sent externally)
     """
-    local_model: str = "ollama/llama3.2"
+    local_model: str = "ollama/llama3.1:8b"
     local_api_base: str = "http://localhost:11434"
     cloud_model: str = "gpt-4o"
 
@@ -371,22 +394,35 @@ def _set_operator_model_if_possible(
 # Execution wrapper
 # ---------------------------------------------------------------------------
 
-def execute_with_routing(operator, input_record, router: PrivacyRouter):
+def execute_with_routing(
+    operator,
+    input_record,
+    router: PrivacyRouter,
+    *,
+    input_fields_override: list[str] | None = None,
+    cached_decision: RouteDecision | None = None,
+):
     """
     Wrap a single operator execution with privacy-aware model routing.
 
     Steps:
       1. If operator has no model (scan, limit) — pass through directly.
-      2. Get the fields this operator actually reads (respects depends_on).
-      3. Call router.inspect() to detect PII and build a RouteDecision.
+      2. Determine input fields to scan (override → all schema fields → depends_on).
+      3. Build a RouteDecision: use cached_decision if provided (document-level),
+         otherwise call router.inspect() (records stats automatically).
       4. Attempt to swap operator.model to local or cloud model.
       5. Log the full decision.
       6. Execute operator(input_record) and return the result.
 
     Args:
-        operator:      A PZ PhysicalOperator instance.
-        input_record:  A pz DataRecord to pass to the operator.
-        router:        A PrivacyRouter instance.
+        operator:              A PZ PhysicalOperator instance.
+        input_record:          A pz DataRecord to pass to the operator.
+        router:                A PrivacyRouter instance.
+        input_fields_override: If set, scan these fields instead of get_input_fields().
+                               Used for FIELD-level granularity.
+        cached_decision:       If set, skip detection and use this pre-computed decision.
+                               Used for DOCUMENT-level granularity (subsequent operators).
+                               Stats are still recorded for every operator call.
 
     Returns:
         DataRecordSet — the output from operator(input_record).
@@ -395,14 +431,32 @@ def execute_with_routing(operator, input_record, router: PrivacyRouter):
     if operator.get_model_name() is None:
         return operator(input_record)
 
-    input_fields: list[str] = operator.get_input_fields()
     generated_fields: list[str] = operator.generated_fields
     op_name: str = operator.op_name()
     model_name = operator.get_model_name()
 
-    decision = router.inspect(operator, input_fields, input_record=input_record)
-    router.last_decision = decision
+    if cached_decision is not None:
+        # Document-level: reuse a pre-scanned decision, but still tally stats
+        # for this operator call so the benchmark counts are per-operator.
+        decision = RouteDecision(
+            destination=cached_decision.destination,
+            detections=cached_decision.detections,
+            inspected_fields=cached_decision.inspected_fields,
+            reason=f"document-level cached: {cached_decision.reason}",
+        )
+        router.stats.record(decision)
+        router.last_decision = decision
+    else:
+        input_fields: list[str] = (
+            input_fields_override
+            if input_fields_override is not None
+            else operator.get_input_fields()
+        )
+        decision = router.inspect(operator, input_fields, input_record=input_record)
+        router.last_decision = decision
+
     destination = decision.destination
+    input_fields = decision.inspected_fields
 
     chosen_model = (
         router.config.cloud_model if destination == "cloud"
