@@ -66,13 +66,28 @@ class ModelConfig:
     """
     Maps the two routing destinations to actual model identifiers.
 
-    local_model   — model tag served locally via Ollama (no data leaves the machine)
-    local_api_base — Ollama server base URL
-    cloud_model   — served via OpenAI API (highest quality, data sent externally)
+    local_model        — model tag served locally via Ollama (no data leaves the machine)
+    local_api_base     — Ollama server base URL
+    cloud_model        — served via OpenAI API (highest quality, data sent externally)
+    score_threshold    — minimum Presidio confidence score to count as a detection
+    sensitive_entities — the only Presidio entity types treated as routing-relevant PII;
+                         noisy resume entities (DATE_TIME, LOCATION, PERSON, NRP) are
+                         intentionally excluded because they produce too many false positives
     """
     local_model: str = "ollama/llama3.1:8b"
     local_api_base: str = "http://localhost:11434"
     cloud_model: str = "gpt-4o"
+    score_threshold: float = 0.6
+    sensitive_entities: frozenset = frozenset({
+        "US_SSN",
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD",
+        "US_DRIVER_LICENSE",
+        "IP_ADDRESS",
+        "US_BANK_NUMBER",
+        "US_PASSPORT",
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +248,12 @@ class PrivacyRouter:
         return str(value)
 
     def _detect_with_presidio(self, field_name: str, text: str) -> list[Detection]:
-        """Run Presidio on a field value, returning normalized detections."""
+        """
+        Run Presidio on a field value, returning only detections that are:
+          (a) in config.sensitive_entities — avoids noisy resume entities like
+              DATE_TIME, LOCATION, PERSON, NRP that cause false positives, and
+          (b) meet config.score_threshold — filters low-confidence matches.
+        """
         analyzer = _get_shared_analyzer()
         if analyzer is None or not text.strip():
             return []
@@ -245,23 +265,43 @@ class PrivacyRouter:
 
         detections: list[Detection] = []
         for result in results:
+            entity_type = getattr(result, "entity_type", "PII")
+            score = getattr(result, "score", 0.0) or 0.0
+
+            # Skip entity types that are too noisy on resume text
+            if entity_type not in self.config.sensitive_entities:
+                continue
+            # Skip low-confidence detections
+            if score < self.config.score_threshold:
+                continue
+
             start = max(0, getattr(result, "start", 0))
             end = min(len(text), getattr(result, "end", 0))
             snippet = text[start:end] if end > start else text[:40]
             detections.append(
                 Detection(
                     field_name=field_name,
-                    entity_type=getattr(result, "entity_type", "PII"),
+                    entity_type=entity_type,
                     source="presidio",
-                    score=getattr(result, "score", None),
+                    score=score,
                     preview=self._safe_preview(snippet),
                 )
             )
         return detections
 
     def _detect_with_heuristics(self, field_name: str, text: str) -> list[Detection]:
-        """Fallback detector using field-name hints and regexes."""
+        """
+        Fallback detector using field-name hints and regexes.
+
+        Field-name hints only fire when the field has a non-empty value —
+        this avoids false positives from schema fields like `ssn` or `phone`
+        that are present but empty in the record.
+        """
         detections: list[Detection] = []
+
+        if not text.strip():
+            return detections  # empty field — nothing to detect
+
         lowered_name = field_name.lower()
         field_tokens = set(re.split(r"[^a-z0-9]+", lowered_name)) - {""}
 
@@ -276,9 +316,6 @@ class PrivacyRouter:
                     )
                 )
                 break
-
-        if not text.strip():
-            return detections
 
         for entity_type, pattern in self._REGEX_PATTERNS.items():
             match = pattern.search(text)
