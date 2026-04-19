@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 r"""
-Demo: Use Palimpzest sem_filter on the resume PII dataset with a local Ollama model.
+Demo: Use Palimpzest sem_filter on the resume PII dataset.
 
 Usage:
-    .venv\Scripts\python.exe demos\resume-pii-demo.py
+    OPENAI_API_KEY=sk-... .venv/bin/python demos/resume-pii-demo.py
+    # Windows: set OPENAI_API_KEY=sk-... && .venv\Scripts\python.exe demos\resume-pii-demo.py
 """
 import json
 import os
 import sys
 import time
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import palimpzest as pz
 
@@ -79,9 +83,9 @@ def main():
         print(f"ERROR: {data_path} not found. Run the data pipeline first.")
         sys.exit(1)
 
-    # Load a stratified sample: 5 from each PII group so the filter has variety
+    # Load a stratified sample: 25 from each PII group for a meaningful comparison
     print("Loading stratified sample from resumes_with_pii.jsonl ...")
-    dataset = ResumeDataset(data_path, sample_per_group=5)
+    dataset = ResumeDataset(data_path, sample_per_group=25)
     print(f"Loaded {len(dataset)} records.\n")
 
     # sem_filter: keep only resumes that contain PII (SSN, phone, or real name)
@@ -91,38 +95,57 @@ def main():
         depends_on=["text", "ssn", "phone", "name"],
     )
 
-    # Configure to use local Ollama llama3.2 via its OpenAI-compatible API
-    ollama_model = pz.Model("openai/llama3.2", api_base="http://localhost:11434/v1")
+    # Configure to use GPT-4o-mini via OpenAI API (key from OPENAI_API_KEY env var)
     config = pz.QueryProcessorConfig(
         policy=pz.MaxQuality(),
-        available_models=[ollama_model],
+        available_models=[pz.Model.GPT_4o_MINI],
         execution_strategy="sequential",
         optimizer_strategy="pareto",
         verbose=True,
     )
 
-    print("Running sem_filter pipeline via Ollama llama3.2 ...\n")
+    print("Running sem_filter pipeline via GPT-4o-mini ...\n")
     start = time.time()
     result = filtered.run(config)
     elapsed = time.time() - start
 
     # ---------------------------------------------------------------------------
-    # 4. Print results
+    # 4. Print results with per-group breakdown for comparison
     # ---------------------------------------------------------------------------
     print(f"\n{'='*70}")
-    print(f"sem_filter completed in {elapsed:.1f}s")
+    print(f"sem_filter completed in {elapsed:.1f}s  (~{elapsed/len(dataset):.1f}s/record)")
     print(f"{'='*70}\n")
+
+    from collections import defaultdict
+    kept_by_group = defaultdict(int)
+    total_by_group = defaultdict(int)
+    for rec in dataset.records:
+        total_by_group[rec["pii_group"]] += 1
 
     kept = 0
     for record in result:
         kept += 1
         rec = record.to_dict() if hasattr(record, "to_dict") else record
+        kept_by_group[rec.get("pii_group", "?")] += 1
         print(f"  [{rec.get('record_id', '?')}]  group={rec.get('pii_group', '?')}  "
               f"category={rec.get('category', '?')}  "
               f"name={rec.get('name', '')!r}  phone={rec.get('phone', '')!r}  "
               f"ssn={rec.get('ssn', '')!r}")
 
-    print(f"\nInput: {len(dataset)} resumes  →  sem_filter kept: {kept}")
+    print(f"\n{'='*70}")
+    print(f"{'PII Group':<12} {'Total':>7} {'Kept':>6} {'Expected':>10} {'Recall/Spec':>12}")
+    print(f"{'-'*50}")
+    for group in ["none", "low", "natural", "high"]:
+        total = total_by_group[group]
+        kept_n = kept_by_group[group]
+        expected = 0 if group in ("none", "low") else total
+        metric = f"{kept_n/total*100:.0f}% spec" if group in ("none", "low") else f"{kept_n/total*100:.0f}% recall"
+        # spec = % correctly rejected (1 - FPR), recall = % correctly kept (TPR)
+        if group in ("none", "low"):
+            metric = f"{(total-kept_n)/total*100:.0f}% spec"
+        print(f"{group:<12} {total:>7} {kept_n:>6} {expected:>10} {metric:>12}")
+    print(f"\nTotal input: {len(dataset)}  →  kept: {kept}")
+    print(f"Model: GPT-4o-mini  |  Cost: see OpenAI dashboard")
 
 
 if __name__ == "__main__":
