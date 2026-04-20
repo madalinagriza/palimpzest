@@ -99,6 +99,29 @@ Only one of the three false positives is a genuine model error. The other two re
 
 GPT-4o-mini provides the reference quality ceiling for the routing benchmark. The routing system will aim to match this on non-PII records (by routing them to cloud) while keeping sensitive records local, accepting the quality gap on locally-routed records as the privacy cost.
 
+### 3.4 Q1 — Routing Granularity Benchmark (1,000 records, dry-run)
+
+To answer Q1 we simulated a two-operator pipeline on 1,000 stratified records (250 per PII group) using Presidio/regex routing with no LLM calls:
+
+- **Op1 `sem_map`** `depends_on=["text","ssn","phone","name"]` — reads raw resume text and extracts a PII-free `skills_summary`
+- **Op2 `sem_filter`** `depends_on=["skills_summary"]` — filters on the derived field only
+
+Op2 should **always** route to cloud: `skills_summary` contains no raw PII. Over-routing Op2 to local wastes quality with no privacy benefit.
+
+| Granularity | Op1 Recall | Op2 Over-Route | Op2 Correct |
+|------------|-----------|----------------|-------------|
+| **OPERATOR** | **98.8%** | **0%** | **100%** |
+| FIELD | 98.8% | 53.2% | 46.8% |
+| DOCUMENT | 98.8% | 53.2% | 46.8% |
+
+**OPERATOR-level routing is the clear winner.** It achieves the same Op1 privacy recall (98.8%) as the other granularities while routing zero Op2 calls to local unnecessarily. FIELD and DOCUMENT both over-route 53% of Op2 calls to the local model despite Op2 never reading a PII field.
+
+FIELD and DOCUMENT produce identical routing decisions on this dataset because the underlying field values are the same at scan time. They differ in computational cost (DOCUMENT is ~2.2× faster: 105s vs 229s) and would diverge on pipelines with in-place anonymization between operators — if Op1 anonymizes a field before Op2 runs, DOCUMENT would still route Op2 based on the original dirty field while FIELD would see the cleaned version.
+
+The 6 records missed at Op1 (FN, privacy risk) have weak PII signals — phone numbers that don't match the regex and names that Presidio's `PERSON` detector misses at `score_threshold=0.6`. These are the same records flagged in Section 3.2 as difficult for GPT-4o-mini as well.
+
+Results saved to `data/q1_multi_1000.json`. Benchmark script: `demos/benchmark_q1.py --pipeline multi --sample 250`.
+
 ---
 
 ## 4. Potential Problems and Mitigations
@@ -118,7 +141,7 @@ GPT-4o-mini provides the reference quality ceiling for the routing benchmark. Th
 | Week 8 | Complete | Presidio integration, `Detection`/`RouteDecision` dataclasses, regex/heuristic fallback, resume dataset pipeline, llama3.2 `sem_filter` experiment |
 | Week 9 | Complete | `RoutingStats`, Presidio singleton, Model enum swap fix, `PrivacyAwareExecutionStrategy` + `create_privacy_processor`, project plan finalized |
 | Week 10 | Complete | GPT-4o-mini cloud baseline (100 records); false positive analysis |
-| Week 11 | In progress | Full routing benchmark (Q1): three conditions × three granularities; PII detector comparison (Q2); query-intent routing pilot (Q3) |
+| Week 11 | In progress | Q1 routing granularity benchmark complete (1,000 records); PII detector comparison (Q2); query-intent routing pilot (Q3) |
 | Week 12 | Upcoming | Final report: results tables, figures, Q1/Q2/Q3 discussion |
 
 ---
@@ -130,7 +153,7 @@ GPT-4o-mini provides the reference quality ceiling for the routing benchmark. Th
 - Iterative improvements to `routing_stub.py`: `RoutingStats`, Presidio singleton, fixed Model enum swap, `local_api_base`.
 - `privacy_execution_strategy.py`: `PrivacyAwareExecutionStrategy` and `create_privacy_processor` factory.
 - GPT-4o-mini cloud baseline run and false positive analysis.
-- Will lead Q1 benchmarks (routing granularity comparison) in week 11.
+- Q1 routing granularity benchmark (`demos/benchmark_q1.py`): 1,000-record dry-run showing OPERATOR granularity achieves 98.8% recall with 0% over-routing vs 53% over-routing for FIELD/DOCUMENT.
 
 **Person B (Onopre)**
 - Full Presidio integration into `PrivacyRouter` (two-layer detector: Presidio + heuristic/regex fallback), `Detection`/`RouteDecision` dataclasses, detection-aware logging, extended smoke test.

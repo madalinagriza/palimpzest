@@ -25,6 +25,15 @@ DOCS_DIR = DATA_DIR / "documents"
 # ---------------------------------------------------------------------------
 # PII stripping regexes (same as reshape_pii.py)
 # ---------------------------------------------------------------------------
+# Resume template watermark domains that appear as footer artifacts in HuggingFace source
+WATERMARK_RE = re.compile(
+    r"(?:resumesample|qwikresume|resumetemplate|livecareer|zety\.com|"
+    r"kickresume|novoresume|visualcv|resumegenius|resumelab|"
+    r"resumehelp|resumebuilder|resumecoach|resumeok|resumeviking|"
+    r"canva\.com|indeed\.com/resume|hloom\.com)",
+    re.I,
+)
+
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", re.I)
 PHONE_RE = re.compile(
     r"(?:\+?\d{1,3}[\s\-.]?)?"
@@ -60,8 +69,15 @@ def _likely_name_line(line):
     return alpha > 0.7 and len(line) < 50
 
 
+def strip_watermarks(text):
+    """Remove lines containing resume template site watermarks."""
+    lines = [ln for ln in text.splitlines() if not WATERMARK_RE.search(ln)]
+    return "\n".join(lines)
+
+
 def strip_all_pii(text):
     """Remove all PII: name, email, phone, address, linkedin."""
+    text = strip_watermarks(text)
     text = EMAIL_RE.sub("", text)
     text = LINKEDIN_RE.sub("", text)
     text = ADDRESS_RE.sub("", text)
@@ -83,6 +99,7 @@ def strip_all_pii(text):
 
 def strip_except_name_email(text):
     """Remove everything except name and email."""
+    text = strip_watermarks(text)
     text = ADDRESS_RE.sub("", text)
     text = LINKEDIN_RE.sub("", text)
     text = PHONE_RE.sub(
