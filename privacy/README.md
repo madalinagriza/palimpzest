@@ -24,20 +24,42 @@ The primary benchmarks (dry-run, no LLM calls) live in `demos/`:
 
 ---
 
-## Setup
+## Requirements
+
+### What you can run right now (no Ollama, no DeBERTa)
+
+The Q1 and Q2 dry-run benchmarks make **no LLM calls** and require only Presidio + spaCy:
 
 ```bash
-# Install privacy dependencies (in addition to normal PZ deps)
-pip install presidio-analyzer presidio-anonymizer spacy
+pip install -r privacy/requirements.txt
 python -m spacy download en_core_web_lg
-
-# Optional: DeBERTa backend (Q2 only)
-pip install transformers torch
-# The DeBERTa model downloads automatically on first use (~500 MB)
-
-# Local model via Ollama (needed for end-to-end runs)
-ollama pull llama3.1:8b
 ```
+
+This is sufficient for:
+- `demos/benchmark_q1.py` — all granularities
+- `demos/benchmark_q2.py --backends presidio regex` — presidio and regex backends
+- `demos/benchmark_q2.py --backends presidio regex ensemble` — ensemble falls back to presidio + regex if DeBERTa is not installed
+
+### DeBERTa backend (optional, Q2 only)
+
+Required only if you want `--backends deberta` or want ensemble to include DeBERTa results.
+The model (`iiiorg/piiranha-v1-detect-personal-information`, ~500 MB) downloads automatically on first use.
+
+```bash
+pip install transformers torch
+```
+
+Skip this if not installed — `routing_stub.py` detects the missing library and returns empty detections, so ensemble still runs via presidio + regex.
+
+### End-to-end LLM runs (`benchmark_granularity.py` only)
+
+Requires either:
+- **Local path**: Ollama installed and running with `llama3.1:8b` pulled
+  - Download: https://ollama.com/download
+  - `ollama pull llama3.1:8b`
+- **Cloud path**: `OPENAI_API_KEY` set in `.env` at the repo root (for records routed to cloud/cloud_anonymized)
+
+The dry-run benchmarks (`benchmark_q1.py`, `benchmark_q2.py`) do **not** use Ollama or any API key.
 
 ---
 

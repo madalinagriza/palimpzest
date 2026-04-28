@@ -1,9 +1,27 @@
-# Core Presidio
+# ── Required for presidio and ensemble backends ──────────────────────────────
 presidio-analyzer>=2.2.0
 presidio-anonymizer>=2.2.0
 
-# NLP backend (default for Presidio)
+# NLP model used by Presidio (downloaded via spacy command below)
+# After pip install, run: python -m spacy download en_core_web_lg
 spacy>=3.7.0,<4.0.0
 
-# Optional but useful (stability + regex fallback)
+# Regex stability (used by the regex fallback in routing_stub.py)
 regex>=2023.0.0
+
+# ── Required to load .env files in the benchmark scripts ─────────────────────
+python-dotenv>=1.0.0
+
+# ── Optional: DeBERTa backend only ───────────────────────────────────────────
+# Needed only if you run --backends deberta or --backends ensemble
+# (ensemble falls back gracefully to presidio+regex if these are missing).
+# The piiranha model (~500 MB) downloads automatically on first use.
+#
+# transformers>=4.40.0
+# torch>=2.0.0
+
+# ── Optional: end-to-end LLM runs (benchmark_granularity.py only) ────────────
+# Requires Ollama running locally with llama3.1:8b pulled:
+#   https://ollama.com/download
+#   ollama pull llama3.1:8b
+# OR an OPENAI_API_KEY set in .env for the cloud model path.
