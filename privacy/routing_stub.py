@@ -28,6 +28,7 @@ import os
 import re
 import threading
 
+from functools import lru_cache
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -70,8 +71,12 @@ class ModelConfig:
     local_model        — model tag served locally via Ollama (no data leaves the machine)
     local_api_base     — Ollama server base URL
     cloud_model        — served via OpenAI API (highest quality, data sent externally)
-    score_threshold    — minimum Presidio confidence score to count as a detection
-    sensitive_entities — the only Presidio entity types treated as routing-relevant PII;
+    score_threshold    — minimum detector confidence score to count as a detection
+    detector_backend   — one of: "presidio", "deberta", "regex", or "ensemble".
+                         "ensemble" runs Presidio + DeBERTa + regex/heuristics.
+    deberta_model      — HuggingFace token-classification model used when
+                         detector_backend includes DeBERTa. Override for Q2 runs if needed.
+    sensitive_entities — the only normalized entity types treated as routing-relevant PII;
                          noisy resume entities (DATE_TIME, LOCATION, PERSON, NRP) are
                          intentionally excluded because they produce too many false positives
     """
@@ -79,6 +84,9 @@ class ModelConfig:
     local_api_base: str = "http://localhost:11434"
     cloud_model: str = "gpt-4o"
     score_threshold: float = 0.6
+    detector_backend: str = "presidio"
+    deberta_model: str = "iiiorg/piiranha-v1-detect-personal-information"
+    deberta_device: int = -1
     sensitive_entities: frozenset[str] = frozenset({
         "US_SSN",
         "EMAIL_ADDRESS",
@@ -203,6 +211,32 @@ def _get_shared_anonymizer():
 
 
 # ---------------------------------------------------------------------------
+# Optional DeBERTa singleton
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=4)
+def _get_shared_deberta_pipeline(model_name: str, device: int = -1):
+    """
+    Return a cached HuggingFace token-classification pipeline.
+
+    This is intentionally optional: if transformers/torch/model files are not
+    installed, this returns None and callers can fall back to regex/heuristics.
+    """
+    try:
+        from transformers import pipeline
+
+        return pipeline(
+            "token-classification",
+            model=model_name,
+            tokenizer=model_name,
+            aggregation_strategy="simple",
+            device=device,
+        )
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Privacy Router
 # ---------------------------------------------------------------------------
 
@@ -240,6 +274,27 @@ class PrivacyRouter:
         "phone number", "email address", "mail address", "home address", "credit card", "passport", "driver",
         "person's name", "full name", "sender", "recipient", "contact info", "identity",
         "patient", "birth", "dob", "ip address",
+    }
+
+    _DEBERTA_LABEL_ALIASES = {
+        "EMAIL": "EMAIL_ADDRESS",
+        "EMAIL_ADDRESS": "EMAIL_ADDRESS",
+        "PHONE": "PHONE_NUMBER",
+        "PHONE_NUMBER": "PHONE_NUMBER",
+        "TEL": "PHONE_NUMBER",
+        "SSN": "US_SSN",
+        "US_SSN": "US_SSN",
+        "SOCIAL_SECURITY_NUMBER": "US_SSN",
+        "CREDIT_CARD": "CREDIT_CARD",
+        "CREDIT_CARD_NUMBER": "CREDIT_CARD",
+        "IP": "IP_ADDRESS",
+        "IP_ADDRESS": "IP_ADDRESS",
+        "PASSPORT": "US_PASSPORT",
+        "US_PASSPORT": "US_PASSPORT",
+        "DRIVER_LICENSE": "US_DRIVER_LICENSE",
+        "US_DRIVER_LICENSE": "US_DRIVER_LICENSE",
+        "BANK_ACCOUNT": "US_BANK_NUMBER",
+        "US_BANK_NUMBER": "US_BANK_NUMBER",
     }
 
     def __init__(self, config: ModelConfig | None = None):
@@ -300,6 +355,97 @@ class PrivacyRouter:
                     field_name=field_name,
                     entity_type=entity_type,
                     source="presidio",
+                    score=score,
+                    preview=self._safe_preview(snippet),
+                )
+            )
+        return detections
+
+    def _normalize_deberta_entity(self, raw_label: str) -> str:
+        """Map model-specific token labels to our shared PII entity names."""
+        label = raw_label.upper()
+        label = re.sub(r"^(B|I)-", "", label)
+        label = label.replace("LABEL_", "")
+        label = label.replace("PII_", "")
+        label = label.replace("PERSONAL_", "")
+        label = label.replace("-", "_")
+
+        if label in self._DEBERTA_LABEL_ALIASES:
+            return self._DEBERTA_LABEL_ALIASES[label]
+
+        if "EMAIL" in label:
+            return "EMAIL_ADDRESS"
+        if "PHONE" in label or label in {"TEL", "MOBILE"}:
+            return "PHONE_NUMBER"
+        if "SSN" in label or "SOCIAL_SECURITY" in label:
+            return "US_SSN"
+        if "CREDIT" in label or "CARD" in label:
+            return "CREDIT_CARD"
+        if label == "IP" or "IP_ADDRESS" in label:
+            return "IP_ADDRESS"
+        if "PASSPORT" in label:
+            return "US_PASSPORT"
+        if "DRIVER" in label or "LICENSE" in label:
+            return "US_DRIVER_LICENSE"
+        if "BANK" in label or "IBAN" in label:
+            return "US_BANK_NUMBER"
+        if "DOB" in label or "BIRTH" in label:
+            return "DATE_OF_BIRTH"
+
+        return label
+
+    def _detect_with_deberta(self, field_name: str, text: str) -> list[Detection]:
+        """
+        Run an optional HuggingFace DeBERTa token-classification PII detector.
+
+        This is meant for the Q2 detector comparison. It is lazy and optional:
+        if transformers/model loading fails, it returns [] and the caller can
+        fall back to regex/heuristics.
+        """
+        if not text.strip():
+            return []
+
+        pipe = _get_shared_deberta_pipeline(
+            self.config.deberta_model,
+            self.config.deberta_device,
+        )
+        if pipe is None:
+            return []
+
+        try:
+            results = pipe(text)
+        except Exception:
+            return []
+
+        detections: list[Detection] = []
+        for result in results:
+            raw_label = str(
+                result.get("entity_group")
+                or result.get("entity")
+                or result.get("label")
+                or "PII"
+            )
+            entity_type = self._normalize_deberta_entity(raw_label)
+            score = float(result.get("score", 0.0) or 0.0)
+
+            if entity_type not in self.config.sensitive_entities:
+                continue
+            if score < self.config.score_threshold:
+                continue
+
+            word = str(result.get("word") or "")
+            start = result.get("start")
+            end = result.get("end")
+            if isinstance(start, int) and isinstance(end, int) and 0 <= start < end <= len(text):
+                snippet = text[start:end]
+            else:
+                snippet = word or text[:40]
+
+            detections.append(
+                Detection(
+                    field_name=field_name,
+                    entity_type=entity_type,
+                    source="deberta",
                     score=score,
                     preview=self._safe_preview(snippet),
                 )
@@ -422,9 +568,36 @@ class PrivacyRouter:
             value = getattr(input_record, field_name, "") if input_record is not None else ""
             text = self._coerce_text(value)
 
-            field_detections = self._detect_with_presidio(field_name, text)
-            if not field_detections:
+            backend = self.config.detector_backend.lower().strip()
+            if backend not in {"presidio", "deberta", "regex", "ensemble"}:
+                raise ValueError(
+                    "ModelConfig.detector_backend must be one of "
+                    "'presidio', 'deberta', 'regex', or 'ensemble'"
+                )
+
+            if backend == "presidio":
+                field_detections = self._detect_with_presidio(field_name, text)
+                if not field_detections:
+                    field_detections = self._detect_with_heuristics(field_name, text)
+            elif backend == "deberta":
+                field_detections = self._detect_with_deberta(field_name, text)
+                if not field_detections:
+                    field_detections = self._detect_with_heuristics(field_name, text)
+            elif backend == "regex":
                 field_detections = self._detect_with_heuristics(field_name, text)
+            else:
+                field_detections = []
+                seen: set[tuple[str, str, str]] = set()
+                for detector in (
+                    self._detect_with_presidio,
+                    self._detect_with_deberta,
+                    self._detect_with_heuristics,
+                ):
+                    for d in detector(field_name, text):
+                        key = (d.field_name, d.entity_type, d.preview)
+                        if key not in seen:
+                            field_detections.append(d)
+                            seen.add(key)
 
             detections.extend(field_detections)
 
@@ -672,7 +845,10 @@ def execute_with_routing(
 
 if __name__ == "__main__":
     config = ModelConfig()
-    print(f"ModelConfig: local={config.local_model!r}  api_base={config.local_api_base!r}  cloud={config.cloud_model!r}")
+    print(
+        f"ModelConfig: local={config.local_model!r}  api_base={config.local_api_base!r}  "
+        f"cloud={config.cloud_model!r}  detector={config.detector_backend!r}"
+    )
 
     router = PrivacyRouter(config)
 
