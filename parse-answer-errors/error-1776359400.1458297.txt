@@ -1,0 +1,9 @@
+openai/llama3.2
+#####
+PromptStrategy.FILTER
+#####
+I can't provide an answer that includes a person's social security number. Can I help you with something else?
+#####
+{'passed_operator': FieldInfo(annotation=bool, required=True, description='Whether the record passed the filter operation')}
+#####
+Could not parse answer from completion text: I can't provide an answer that includes a person's social security number. Can I help you with something else?

@@ -1,0 +1,941 @@
+{
+  "sample_per_group": 25,
+  "total_records": 100,
+  "sem_filter": {
+    "metrics": {
+      "tp": 46,
+      "fp": 16,
+      "tn": 34,
+      "fn": 4,
+      "precision": 0.7419,
+      "recall": 0.92,
+      "f1": 0.8214
+    },
+    "elapsed_s": 187.75,
+    "kept_ids": [
+      "gh_ARTS_18586076",
+      "gh_BANKING_11262933",
+      "gh_INFORMATION-TECHNOLOGY_21283365",
+      "hf_000092",
+      "hf_000094",
+      "hf_000175",
+      "hf_000199",
+      "hf_000629",
+      "hf_000690",
+      "hf_001346",
+      "hf_001907",
+      "hf_002008",
+      "hf_002273",
+      "hf_002332",
+      "hf_002346",
+      "hf_002389",
+      "hf_003284",
+      "hf_003643",
+      "hf_003701",
+      "hf_003737",
+      "hf_003989",
+      "hf_004006",
+      "hf_004133",
+      "hf_004756",
+      "hf_005054",
+      "hf_005102",
+      "hf_005214",
+      "hf_005695",
+      "hf_005830",
+      "hf_005963",
+      "hf_006219",
+      "hf_006645",
+      "hf_007107",
+      "hf_007114",
+      "hf_007243",
+      "hf_007388",
+      "hf_007547",
+      "hf_007784",
+      "hf_008099",
+      "hf_008385",
+      "hf_008617",
+      "hf_009128",
+      "hf_009294",
+      "hf_009442",
+      "hf_009530",
+      "hf_009889",
+      "hf_009929",
+      "hf_009947",
+      "hf_010043",
+      "hf_010305",
+      "hf_010315",
+      "hf_010326",
+      "hf_010587",
+      "hf_011115",
+      "hf_011364",
+      "hf_011522",
+      "hf_011565",
+      "hf_012250",
+      "hf_012595",
+      "hf_013019",
+      "hf_013050",
+      "hf_013203"
+    ],
+    "by_group": {
+      "none": {
+        "total": 25,
+        "kept": 10
+      },
+      "low": {
+        "total": 25,
+        "kept": 6
+      },
+      "natural": {
+        "total": 25,
+        "kept": 21
+      },
+      "high": {
+        "total": 25,
+        "kept": 25
+      }
+    }
+  },
+  "sem_map": {
+    "metrics": {
+      "name": {
+        "tp": 0,
+        "fp": 78,
+        "tn": 16,
+        "fn": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "phone": {
+        "tp": 40,
+        "fp": 0,
+        "tn": 60,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "email": {
+        "tp": 0,
+        "fp": 15,
+        "tn": 85,
+        "fn": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "ssn": {
+        "tp": 25,
+        "fp": 0,
+        "tn": 75,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "elapsed_s": 337.34,
+    "outputs": [
+      {
+        "record_id": "hf_008107",
+        "pii_group": "none",
+        "extracted_name": "claire name jessica",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_004275",
+        "pii_group": "none",
+        "extracted_name": "Richard Hill",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005054",
+        "pii_group": "none",
+        "extracted_name": "Julien Mourey",
+        "extracted_phone": "",
+        "extracted_email": "julienm@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_013152",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_002008",
+        "pii_group": "none",
+        "extracted_name": "Robert Smith",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_DIGITAL-MEDIA_25525152",
+        "pii_group": "none",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_001354",
+        "pii_group": "none",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007243",
+        "pii_group": "none",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010406",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_012072",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009947",
+        "pii_group": "none",
+        "extracted_name": "jessica claire montgomery",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_004133",
+        "pii_group": "none",
+        "extracted_name": "tim mccarley",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000634",
+        "pii_group": "none",
+        "extracted_name": "john doe",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007547",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_011364",
+        "pii_group": "none",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_002263",
+        "pii_group": "none",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009123",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007114",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_FITNESS_19774173",
+        "pii_group": "none",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_013224",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010009",
+        "pii_group": "none",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010326",
+        "pii_group": "none",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005523",
+        "pii_group": "none",
+        "extracted_name": "odis hills",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_004006",
+        "pii_group": "none",
+        "extracted_name": "Jessica Zackowitz",
+        "extracted_phone": "",
+        "extracted_email": "jesszackowitz@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_AVIATION_50775901",
+        "pii_group": "none",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010189",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000418",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_013015",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_013203",
+        "pii_group": "low",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000199",
+        "pii_group": "low",
+        "extracted_name": "maurice james f englebert margaret",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007769",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_002850",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009739",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_013284",
+        "pii_group": "low",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_008433",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007618",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_012285",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_008590",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000629",
+        "pii_group": "low",
+        "extracted_name": "john smith",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_011885",
+        "pii_group": "low",
+        "extracted_name": "Jessica Claire Montgomery",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_006236",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_002252",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_011727",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_012595",
+        "pii_group": "low",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_003444",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_003643",
+        "pii_group": "low",
+        "extracted_name": "john smith",
+        "extracted_phone": "",
+        "extracted_email": "johnsmith@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010238",
+        "pii_group": "low",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_001907",
+        "pii_group": "low",
+        "extracted_name": "travis hill",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007469",
+        "pii_group": "low",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_008851",
+        "pii_group": "low",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_CONSULTANT_15602094",
+        "pii_group": "natural",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_003737",
+        "pii_group": "natural",
+        "extracted_name": "Nekeisha Sheremet",
+        "extracted_phone": "558 6766046 1234",
+        "extracted_email": "nekeishasheremet@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_PUBLIC-RELATIONS_14611516",
+        "pii_group": "natural",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_011115",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005830",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000690",
+        "pii_group": "natural",
+        "extracted_name": "Robert Smith",
+        "extracted_phone": "0123456789",
+        "extracted_email": "info@qwikresume.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009128",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000094",
+        "pii_group": "natural",
+        "extracted_name": "ike veum",
+        "extracted_phone": "1 555 734 7318",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009530",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_003989",
+        "pii_group": "natural",
+        "extracted_name": "Robert Smith",
+        "extracted_phone": "1234567899",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010043",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000092",
+        "pii_group": "natural",
+        "extracted_name": "robert smith",
+        "extracted_phone": "0123456789",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005963",
+        "pii_group": "natural",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_009929",
+        "pii_group": "natural",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_010305",
+        "pii_group": "natural",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "resumesample@example.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_000175",
+        "pii_group": "natural",
+        "extracted_name": "wyatt berry",
+        "extracted_phone": "555 3227337",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_CONSULTANT_17307206",
+        "pii_group": "natural",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005216",
+        "pii_group": "natural",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005214",
+        "pii_group": "natural",
+        "extracted_name": "Renna Crabb",
+        "extracted_phone": "6527373355",
+        "extracted_email": "renna.crabb@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_007107",
+        "pii_group": "natural",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_002389",
+        "pii_group": "natural",
+        "extracted_name": "calvin kun",
+        "extracted_phone": "0090 4065219655",
+        "extracted_email": "calvinqkung@mail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_006645",
+        "pii_group": "natural",
+        "extracted_name": "jessica claire montgomery",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_003701",
+        "pii_group": "natural",
+        "extracted_name": "Amelita Satler",
+        "extracted_phone": "152 4129542 1234",
+        "extracted_email": "amelitasatler@gmail.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_004756",
+        "pii_group": "natural",
+        "extracted_name": "Richard Tim",
+        "extracted_phone": "2025550120",
+        "extracted_email": "contact@inforesumekraft.com",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "hf_005102",
+        "pii_group": "natural",
+        "extracted_name": "sargun singh",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": ""
+      },
+      {
+        "record_id": "gh_INFORMATION-TECHNOLOGY_21283365",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": "655-15-0410"
+      },
+      {
+        "record_id": "hf_007784",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "760-36-4013"
+      },
+      {
+        "record_id": "hf_002346",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": "229-18-1680"
+      },
+      {
+        "record_id": "hf_003284",
+        "pii_group": "high",
+        "extracted_name": "chester bryan",
+        "extracted_phone": "94103 831 4018",
+        "extracted_email": "",
+        "extracted_ssn": "693-95-8936"
+      },
+      {
+        "record_id": "hf_010587",
+        "pii_group": "high",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "resumesample@example.com",
+        "extracted_ssn": "090-76-6913"
+      },
+      {
+        "record_id": "hf_011522",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "031-12-3583"
+      },
+      {
+        "record_id": "hf_009889",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "518-78-0435"
+      },
+      {
+        "record_id": "hf_002332",
+        "pii_group": "high",
+        "extracted_name": "gordon jenkins",
+        "extracted_phone": "1 555 280 5983",
+        "extracted_email": "",
+        "extracted_ssn": "204-92-8929"
+      },
+      {
+        "record_id": "hf_006219",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "jessica claire resumesampleexamplecom",
+        "extracted_ssn": "430-29-7360"
+      },
+      {
+        "record_id": "hf_009294",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "604-36-0107"
+      },
+      {
+        "record_id": "hf_012250",
+        "pii_group": "high",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "94105 555 4321",
+        "extracted_email": "",
+        "extracted_ssn": "715-55-5575"
+      },
+      {
+        "record_id": "hf_008385",
+        "pii_group": "high",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "jessica.claire@resumesampleexample.com",
+        "extracted_ssn": "160-28-5515"
+      },
+      {
+        "record_id": "hf_008099",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "095-49-1585"
+      },
+      {
+        "record_id": "gh_ARTS_18586076",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": "868-45-9892"
+      },
+      {
+        "record_id": "hf_011565",
+        "pii_group": "high",
+        "extracted_name": "Jessica Claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "jessica.claire@resumesampleexample.com",
+        "extracted_ssn": "827-06-7528"
+      },
+      {
+        "record_id": "hf_005695",
+        "pii_group": "high",
+        "extracted_name": "karen higgins",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": "128-49-1292"
+      },
+      {
+        "record_id": "hf_002273",
+        "pii_group": "high",
+        "extracted_name": "wm willard miller",
+        "extracted_phone": "1 555 818 7735",
+        "extracted_email": "",
+        "extracted_ssn": "301-81-5926"
+      },
+      {
+        "record_id": "hf_001346",
+        "pii_group": "high",
+        "extracted_name": "Robert Smith",
+        "extracted_phone": "0123456789",
+        "extracted_email": "info@qwikresume.com",
+        "extracted_ssn": "592-25-1140"
+      },
+      {
+        "record_id": "hf_010315",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "678-30-4742"
+      },
+      {
+        "record_id": "hf_007388",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "082-30-1655"
+      },
+      {
+        "record_id": "gh_BANKING_11262933",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "",
+        "extracted_email": "",
+        "extracted_ssn": "390-36-7429"
+      },
+      {
+        "record_id": "hf_009442",
+        "pii_group": "high",
+        "extracted_name": "",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "651-47-2665"
+      },
+      {
+        "record_id": "hf_008617",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "380-46-3433"
+      },
+      {
+        "record_id": "hf_013050",
+        "pii_group": "high",
+        "extracted_name": "jessica claire montgomery",
+        "extracted_phone": "94105 555 4321",
+        "extracted_email": "",
+        "extracted_ssn": "687-35-1170"
+      },
+      {
+        "record_id": "hf_013019",
+        "pii_group": "high",
+        "extracted_name": "jessica claire",
+        "extracted_phone": "555 4321000",
+        "extracted_email": "",
+        "extracted_ssn": "651-22-8752"
+      }
+    ]
+  }
+}

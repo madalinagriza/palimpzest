@@ -110,7 +110,7 @@ All 20 were from the `none` PII group (first 20 lines in the JSONL are shuffled 
 | Input records | 20 (5 none + 5 low + 5 natural + 5 high) |
 | Records kept by `sem_filter` | **1** |
 | Records rejected | 19 |
-| Time | 664.7s (~33.2s/record) |
+| Time | 628.1s (~31.4s/record) |
 | Cost | $0.00 |
 
 #### Records that passed the filter
