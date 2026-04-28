@@ -1,0 +1,283 @@
+{
+  "sample_per_group": 100,
+  "score_threshold": 0.6,
+  "backends": [
+    "presidio",
+    "deberta",
+    "regex",
+    "ensemble"
+  ],
+  "metrics": [
+    {
+      "backend": "presidio",
+      "total": 400,
+      "tp": 196,
+      "tn": 190,
+      "fp": 10,
+      "fn": 4,
+      "recall": 0.98,
+      "specificity": 0.95,
+      "precision": 0.9514563106796117,
+      "f1": 0.9655172413793104,
+      "local_rate": 0.515,
+      "elapsed_s": 43.51521015167236,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          258
+        ],
+        [
+          "US_SSN",
+          198
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          157
+        ],
+        [
+          "FIELD_HINT:SSN",
+          100
+        ],
+        [
+          "FIELD_HINT:NAME",
+          48
+        ],
+        [
+          "CREDIT_CARD",
+          38
+        ],
+        [
+          "US_DRIVER_LICENSE",
+          4
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295"
+      ],
+      "fp_ids": [
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175"
+      ]
+    },
+    {
+      "backend": "deberta",
+      "total": 400,
+      "tp": 196,
+      "tn": 181,
+      "fp": 19,
+      "fn": 4,
+      "recall": 0.98,
+      "specificity": 0.905,
+      "precision": 0.9116279069767442,
+      "f1": 0.9445783132530121,
+      "local_rate": 0.5375,
+      "elapsed_s": 316.5833752155304,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          267
+        ],
+        [
+          "US_SSN",
+          171
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          146
+        ],
+        [
+          "FIELD_HINT:SSN",
+          97
+        ],
+        [
+          "CREDIT_CARD",
+          70
+        ],
+        [
+          "FIELD_HINT:NAME",
+          48
+        ],
+        [
+          "EMAIL_ADDRESS",
+          39
+        ],
+        [
+          "US_DRIVER_LICENSE",
+          2
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295"
+      ],
+      "fp_ids": [
+        "hf_005054",
+        "hf_004006",
+        "gh_APPAREL_13807808",
+        "hf_004849",
+        "hf_003643",
+        "hf_001362",
+        "hf_007447",
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "hf_000500",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175",
+        "hf_002454"
+      ]
+    },
+    {
+      "backend": "regex",
+      "total": 400,
+      "tp": 195,
+      "tn": 190,
+      "fp": 10,
+      "fn": 5,
+      "recall": 0.975,
+      "specificity": 0.95,
+      "precision": 0.9512195121951219,
+      "f1": 0.9629629629629629,
+      "local_rate": 0.5125,
+      "elapsed_s": 0.11152410507202148,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          289
+        ],
+        [
+          "US_SSN",
+          200
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          157
+        ],
+        [
+          "FIELD_HINT:SSN",
+          100
+        ],
+        [
+          "CREDIT_CARD",
+          67
+        ],
+        [
+          "FIELD_HINT:NAME",
+          48
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295",
+        "hf_000052"
+      ],
+      "fp_ids": [
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175"
+      ]
+    },
+    {
+      "backend": "ensemble",
+      "total": 400,
+      "tp": 196,
+      "tn": 181,
+      "fp": 19,
+      "fn": 4,
+      "recall": 0.98,
+      "specificity": 0.905,
+      "precision": 0.9116279069767442,
+      "f1": 0.9445783132530121,
+      "local_rate": 0.5375,
+      "elapsed_s": 197.13592386245728,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          319
+        ],
+        [
+          "US_SSN",
+          200
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          157
+        ],
+        [
+          "FIELD_HINT:SSN",
+          100
+        ],
+        [
+          "CREDIT_CARD",
+          91
+        ],
+        [
+          "FIELD_HINT:NAME",
+          48
+        ],
+        [
+          "EMAIL_ADDRESS",
+          35
+        ],
+        [
+          "US_DRIVER_LICENSE",
+          5
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295"
+      ],
+      "fp_ids": [
+        "hf_005054",
+        "hf_004006",
+        "gh_APPAREL_13807808",
+        "hf_004849",
+        "hf_003643",
+        "hf_001362",
+        "hf_007447",
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "hf_000500",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175",
+        "hf_002454"
+      ]
+    }
+  ]
+}
