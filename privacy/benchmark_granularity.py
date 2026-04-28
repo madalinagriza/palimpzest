@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import palimpzest as pz
 
 from privacy_execution_strategy import create_privacy_processor
-from routing_stub import PrivacyRouter, RoutingGranularity
+from routing_stub import ModelConfig, PrivacyRouter, RoutingGranularity
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -144,7 +144,10 @@ def run_one(
         depends_on=["text", "ssn", "phone", "name"],
     )
 
-    router = PrivacyRouter()
+    router = PrivacyRouter(ModelConfig(
+        local_model="openai/llama3.1:8b",
+        local_api_base="http://localhost:11434/v1",
+    ))
     processor = create_privacy_processor(plan, config, router=router, granularity=granularity)
 
     t0 = time.time()
