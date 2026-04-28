@@ -42,10 +42,6 @@ The primary benchmark dataset is a controlled resume corpus (14,566 records) wit
 - **Query-intent routing (Q3).** Add a `depends_on`-driven check that skips PII detection for fields the operator does not read; test whether routing to cloud with anonymization is safe when the query is insensitive to the PII field.
 - **Final report.** Three-section structure mapping to Q1/Q2/Q3, results tables, and discussion of the quality-privacy tradeoff.
 
-### 2.3 Completed Since Mid-Term
-
-- **Anonymization sensitivity knob.** Implemented `AnonymizationSensitivity` (PERMISSIVE / BALANCED / CONSERVATIVE) as a client-facing configuration parameter. Benchmarked redaction rate and privacy leakage across all three levels on the full resume corpus; results in Section 3.4.
-
 ---
 
 ## 3. Results to Date
@@ -90,136 +86,18 @@ GPT-4o-mini detected PII in all 25 `high`-group records (injected SSNs and DOBs:
 
 Only one of the three false positives is a genuine model error. The other two reflect imperfections in the data pipeline that are useful to surface.
 
-### 3.3 Updated GPT-4o-mini Baseline (100 records)
+### 3.3 Comparison Summary
 
-A second baseline run with GPT-4o-mini on 100 stratified records (25 per group) produced updated metrics:
+| Metric | llama3.2 (local, 3B) | GPT-4o-mini (cloud) |
+|--------|----------------------|---------------------|
+| Recall — natural group | 20% | 80% |
+| Recall — high group | 0% | 100% |
+| Specificity — none group | 100% | 92% |
+| Specificity — low group | 100% | 96% |
+| Latency per record | ~33s | ~1.5s |
+| Cost per 100 records | $0.00 | $0.019 |
 
-| PII Group | Records | Kept | FP/FN |
-|-----------|---------|------|-------|
-| none | 25 | 10 | 10 FP |
-| low | 25 | 6 | 6 FP |
-| natural | 25 | 21 | 4 FN |
-| high | 25 | 25 | 0 FN |
-| **Total** | **100** | **62** | |
-
-| Metric | Value |
-|--------|-------|
-| Precision | 0.742 |
-| Recall | 0.920 |
-| F1 | 0.821 |
-| Latency | ~1.9s/record |
-| Cost | ~$0.034 |
-
-The false positive rate in the `none` and `low` groups (16 total) is notably higher than the previous run, attributable to the "jessica claire" watermark present in many HuggingFace resume templates — the model correctly flags names, but the ground-truth label for those records is `none`. This is a data labeling artifact that should be noted in the benchmark evaluation.
-
-`sem_map` field extraction for the same 100 records yielded the following per-field accuracy:
-
-| Field | Precision | Recall | F1 | Note |
-|-------|-----------|--------|----|------|
-| phone | 1.000 | 1.000 | 1.000 | Perfect extraction |
-| ssn | 1.000 | 1.000 | 1.000 | Perfect extraction |
-| name | 0.000 | 0.000 | 0.000 | All 78 extractions are false positives — "jessica claire" watermark |
-| email | 0.000 | 0.000 | 0.000 | 15 false positives; 0 true positives in labeled set |
-
-Phone and SSN extraction is reliable. Name and email extraction fail entirely because the HuggingFace resume watermark ("jessica claire montgomery") looks like a real name and email to the model but is not annotated as PII in the ground truth.
-
----
-
-### 3.4 Anonymization Sensitivity Knob — Benchmark
-
-#### Design
-
-The `cloud_anonymized` routing path (condition 2) strips PII before sending a record to the cloud model. The aggressiveness of that stripping is controlled by a new client-facing knob, `AnonymizationSensitivity`, which maps to a Presidio score threshold:
-
-| Level | Threshold | Rationale |
-|-------|-----------|-----------|
-| PERMISSIVE | 0.85 | Redact only when highly confident; preserves document quality |
-| BALANCED | 0.60 | Default; balances quality and privacy |
-| CONSERVATIVE | 0.30 | Redact even low-confidence detections; maximises privacy |
-
-The routing decision (whether a record goes to `local`, `cloud_anonymized`, or `cloud`) continues to use the separate `score_threshold` (default 0.60) in `ModelConfig`. The sensitivity knob controls only what gets redacted *within* the anonymization step — the two are independently tunable.
-
-#### Results (80 records, 20 per group)
-
-All three levels were benchmarked on a balanced 80-record sample. The "before" baseline was established by scanning every original document at the conservative threshold (0.30) to get a stable ground-truth PII count. The "after" scan used the same threshold on the anonymized output to measure residual PII.
-
-| Sensitivity | Anon threshold | PII hits (baseline) | Redacted | Residual | Redaction rate | Leakage rate |
-|-------------|----------------|---------------------|----------|----------|----------------|--------------|
-| PERMISSIVE | 0.85 | 132 | 44 | 88 | 33.3% | 66.7% |
-| BALANCED | 0.60 | 132 | 42 | 90 | 31.8% | 68.2% |
-| CONSERVATIVE | 0.30 | 132 | 129 | 3 | 97.7% | 2.3% |
-
-#### Entity-type breakdown
-
-| Entity type | Baseline hits | Residual (PERM) | Residual (BAL) | Residual (CONS) |
-|-------------|--------------|-----------------|----------------|-----------------|
-| PHONE_NUMBER | 82 | 58 | 60 | 0 |
-| US_DRIVER_LICENSE | 29 | 29 | 29 | 3 |
-| US_SSN | 20 | 0 | 0 | 0 |
-| US_BANK_NUMBER | 1 | 1 | 1 | 0 |
-
-#### Analysis
-
-**SSNs are caught at every level.** Presidio scores SSNs above 0.85 consistently (the `\d{3}-\d{2}-\d{4}` pattern is unambiguous). Setting PERMISSIVE versus CONSERVATIVE makes no difference for SSN redaction.
-
-**Phone numbers and driver licenses are only caught at CONSERVATIVE.** Presidio assigns these scores in the 0.30–0.55 range on resume text, which falls below both the PERMISSIVE (0.85) and BALANCED (0.60) thresholds. This explains the near-identical performance of PERMISSIVE and BALANCED (33.3% vs. 31.8% redaction).
-
-**The score distribution is bimodal.** Detections cluster either above 0.85 (SSNs) or below 0.60 (phone numbers, driver licenses). The 0.60–0.85 band is nearly empty for this dataset. This means the effective choice is binary: either set CONSERVATIVE (threshold 0.30, catches everything) or accept that phone numbers and driver licenses will not be redacted.
-
-**Implication for the benchmark.** The sensitivity knob's meaningful range, for this corpus, is between 0.30 and 0.60. Raising the threshold above 0.60 provides no additional quality benefit while already leaving 67% of PII in the anonymized output. The recommendation for clients processing structured resume data is CONSERVATIVE unless document readability is a hard constraint.
-
-**Residual leakage in the `none` and `low` groups.** At PERMISSIVE and BALANCED, 12 PII hits remain in records that nominally contain no PII (7 in `none`, 5 in `low`). These are Presidio false positives on the watermark text ("jessica claire", placeholder addresses) that are present in the original records — not a failure of anonymization. At CONSERVATIVE, 2 of these 12 remain (both in the `none` group), suggesting a small irreducible false-positive floor.
-
----
-
-### 3.5 Comparison Summary (all experiments)
-
-**`sem_filter` quality across model configurations:**
-
-| Metric | llama3.2 (local, 3B) | GPT-4o-mini (cloud, run 1) | GPT-4o-mini (cloud, run 2) |
-|--------|----------------------|---------------------------|---------------------------|
-| Recall — natural group | 20% | 80% | 84% |
-| Recall — high group | 0% | 100% | 100% |
-| Specificity — none group | 100% | 92% | 60% |
-| Specificity — low group | 100% | 96% | 76% |
-| Overall F1 | — | — | 0.821 |
-| Latency per record | ~33s | ~1.5s | ~1.9s |
-| Cost per 100 records | $0.00 | $0.019 | $0.034 |
-
-The drop in specificity in run 2 reflects the "jessica claire" watermark present in many HuggingFace templates, which the model correctly flags as a name even though those records are labeled `none`. This is a labeling artifact.
-
-**Anonymization sensitivity tradeoff (80-record benchmark, `cloud_anonymized` path):**
-
-| Sensitivity | Threshold | Redaction rate | Leakage rate | SSN residual | Phone residual |
-|-------------|-----------|----------------|--------------|--------------|----------------|
-| PERMISSIVE | 0.85 | 33.3% | 66.7% | 0% | 71% |
-| BALANCED | 0.60 | 31.8% | 68.2% | 0% | 73% |
-| CONSERVATIVE | 0.30 | 97.7% | 2.3% | 0% | 0% |
-
-GPT-4o-mini (run 2) provides the reference quality ceiling for the routing benchmark. The routing system will aim to match this on non-PII records (by routing them to cloud) while keeping sensitive records local. For the `cloud_anonymized` path, CONSERVATIVE is the only setting that meaningfully reduces leakage on this dataset.
-
-### 3.4 Q1 — Routing Granularity Benchmark (1,000 records, dry-run)
-
-To answer Q1 we simulated a two-operator pipeline on 1,000 stratified records (250 per PII group) using Presidio/regex routing with no LLM calls:
-
-- **Op1 `sem_map`** `depends_on=["text","ssn","phone","name"]` — reads raw resume text and extracts a PII-free `skills_summary`
-- **Op2 `sem_filter`** `depends_on=["skills_summary"]` — filters on the derived field only
-
-Op2 should **always** route to cloud: `skills_summary` contains no raw PII. Over-routing Op2 to local wastes quality with no privacy benefit.
-
-| Granularity | Op1 Recall | Op2 Over-Route | Op2 Correct |
-|------------|-----------|----------------|-------------|
-| **OPERATOR** | **98.8%** | **0%** | **100%** |
-| FIELD | 98.8% | 53.2% | 46.8% |
-| DOCUMENT | 98.8% | 53.2% | 46.8% |
-
-**OPERATOR-level routing is the clear winner.** It achieves the same Op1 privacy recall (98.8%) as the other granularities while routing zero Op2 calls to local unnecessarily. FIELD and DOCUMENT both over-route 53% of Op2 calls to the local model despite Op2 never reading a PII field.
-
-FIELD and DOCUMENT produce identical routing decisions on this dataset because the underlying field values are the same at scan time. They differ in computational cost (DOCUMENT is ~2.2× faster: 105s vs 229s) and would diverge on pipelines with in-place anonymization between operators — if Op1 anonymizes a field before Op2 runs, DOCUMENT would still route Op2 based on the original dirty field while FIELD would see the cleaned version.
-
-The 6 records missed at Op1 (FN, privacy risk) have weak PII signals — phone numbers that don't match the regex and names that Presidio's `PERSON` detector misses at `score_threshold=0.6`. These are the same records flagged in Section 3.2 as difficult for GPT-4o-mini as well.
-
-Results saved to `data/q1_multi_1000.json`. Benchmark script: `demos/benchmark_q1.py --pipeline multi --sample 250`.
+GPT-4o-mini provides the reference quality ceiling for the routing benchmark. The routing system will aim to match this on non-PII records (by routing them to cloud) while keeping sensitive records local, accepting the quality gap on locally-routed records as the privacy cost.
 
 ---
 
@@ -239,9 +117,9 @@ Results saved to `data/q1_multi_1000.json`. Benchmark script: `demos/benchmark_q
 | Weeks 1–7 | Complete | Architecture mapping, PZ execution stack documentation, `explore_pipeline.py`, initial routing stub |
 | Week 8 | Complete | Presidio integration, `Detection`/`RouteDecision` dataclasses, regex/heuristic fallback, resume dataset pipeline, llama3.2 `sem_filter` experiment |
 | Week 9 | Complete | `RoutingStats`, Presidio singleton, Model enum swap fix, `PrivacyAwareExecutionStrategy` + `create_privacy_processor`, project plan finalized |
-| Week 10 | Complete | GPT-4o-mini cloud baseline (100 records); false positive analysis; updated baseline run with `sem_map` field extraction |
-| Week 11 | Complete | Anonymization sensitivity knob (`AnonymizationSensitivity` enum); redaction-rate / leakage benchmark across PERMISSIVE / BALANCED / CONSERVATIVE on 80 records; bimodal score-distribution finding |
-| Week 12 | In progress | Full routing benchmark (Q1); PII detector comparison (Q2); query-intent routing (Q3); Final report: results tables, figures, Q1/Q2/Q3 discussion |
+| Week 10 | Complete | GPT-4o-mini cloud baseline (100 records); false positive analysis |
+| Week 11 | In progress | Full routing benchmark (Q1): three conditions × three granularities; PII detector comparison (Q2); query-intent routing pilot (Q3) |
+| Week 12 | Upcoming | Final report: results tables, figures, Q1/Q2/Q3 discussion |
 
 ---
 
@@ -252,7 +130,7 @@ Results saved to `data/q1_multi_1000.json`. Benchmark script: `demos/benchmark_q
 - Iterative improvements to `routing_stub.py`: `RoutingStats`, Presidio singleton, fixed Model enum swap, `local_api_base`.
 - `privacy_execution_strategy.py`: `PrivacyAwareExecutionStrategy` and `create_privacy_processor` factory.
 - GPT-4o-mini cloud baseline run and false positive analysis.
-- Q1 routing granularity benchmark (`demos/benchmark_q1.py`): 1,000-record dry-run showing OPERATOR granularity achieves 98.8% recall with 0% over-routing vs 53% over-routing for FIELD/DOCUMENT.
+- Will lead Q1 benchmarks (routing granularity comparison) in week 11.
 
 **Person B (Onopre)**
 - Full Presidio integration into `PrivacyRouter` (two-layer detector: Presidio + heuristic/regex fallback), `Detection`/`RouteDecision` dataclasses, detection-aware logging, extended smoke test.
@@ -262,7 +140,7 @@ Results saved to `data/q1_multi_1000.json`. Benchmark script: `demos/benchmark_q
 - Resume PII dataset pipeline (`build_resumes_clean.py` → `reshape_pii.py` → `format_resumes.py`): 14,566 deduplicated records across four PII groups with SSN/DOB injection and six formatting templates. Documented in `data/phase1_report.md`.
 - First end-to-end experiment (`demos/resume-pii-demo.py`): `sem_filter` on 20 stratified records with llama3.2; results in `data/sem_filter_report.md`.
 - Project plan: defined research questions, routing logic, agreed metrics, failure-mode threshold, and all design decisions.
-- Anonymization sensitivity knob: `AnonymizationSensitivity` enum (PERMISSIVE / BALANCED / CONSERVATIVE), `anonymization_threshold` property on `ModelConfig`, updated `_anonymize_text` and `create_privacy_processor`; `benchmark_sensitivity.py` redaction/leakage benchmark and bimodal score-distribution analysis (Section 3.4).
+- Will lead full benchmark execution in week 11.
 
 ---
 

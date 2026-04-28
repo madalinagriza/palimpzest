@@ -60,6 +60,44 @@ class RoutingGranularity(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# Anonymization sensitivity knob
+# ---------------------------------------------------------------------------
+
+class AnonymizationSensitivity(str, Enum):
+    """
+    Client-facing knob that controls how aggressively detected PII is redacted
+    during the cloud_anonymized routing path.
+
+    PERMISSIVE   — anonymize only entities the detector is highly confident about
+                   (Presidio score ≥ 0.85).  Preserves more document content and
+                   downstream query quality; trades some privacy for readability.
+    BALANCED     — default.  Redact entities above a moderate confidence bar
+                   (score ≥ 0.60).  Recommended for most workloads.
+    CONSERVATIVE — redact even low-confidence detections (score ≥ 0.30).
+                   Maximises privacy coverage; may over-redact in noisy content.
+
+    The knob applies only to the anonymization step (cloud_anonymized path).
+    The routing threshold that decides *whether* a record goes to local vs.
+    cloud_anonymized vs. cloud is controlled separately by ModelConfig.score_threshold.
+
+    Example::
+
+        config = ModelConfig(anonymization_sensitivity=AnonymizationSensitivity.CONSERVATIVE)
+        router  = PrivacyRouter(config)
+    """
+    PERMISSIVE   = "permissive"
+    BALANCED     = "balanced"
+    CONSERVATIVE = "conservative"
+
+
+_SENSITIVITY_TO_THRESHOLD: dict[AnonymizationSensitivity, float] = {
+    AnonymizationSensitivity.PERMISSIVE:   0.85,
+    AnonymizationSensitivity.BALANCED:     0.60,
+    AnonymizationSensitivity.CONSERVATIVE: 0.30,
+}
+
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
@@ -68,22 +106,29 @@ class ModelConfig:
     """
     Maps the two routing destinations to actual model identifiers.
 
-    local_model        — model tag served locally via Ollama (no data leaves the machine)
-    local_api_base     — Ollama server base URL
-    cloud_model        — served via OpenAI API (highest quality, data sent externally)
-    score_threshold    — minimum detector confidence score to count as a detection
-    detector_backend   — one of: "presidio", "deberta", "regex", or "ensemble".
-                         "ensemble" runs Presidio + DeBERTa + regex/heuristics.
-    deberta_model      — HuggingFace token-classification model used when
-                         detector_backend includes DeBERTa. Override for Q2 runs if needed.
-    sensitive_entities — the only normalized entity types treated as routing-relevant PII;
-                         noisy resume entities (DATE_TIME, LOCATION, PERSON, NRP) are
-                         intentionally excluded because they produce too many false positives
+    local_model               — model tag served locally via Ollama (no data leaves the machine)
+    local_api_base            — Ollama server base URL
+    cloud_model               — served via OpenAI API (highest quality, data sent externally)
+    score_threshold           — minimum detector confidence score for a detection to trigger
+                                routing (local vs. cloud_anonymized vs. cloud).  Independent
+                                of the anonymization threshold below.
+    anonymization_sensitivity — controls how aggressively PII is redacted in the
+                                cloud_anonymized path.  See AnonymizationSensitivity for
+                                the three named levels (PERMISSIVE / BALANCED / CONSERVATIVE).
+                                Defaults to BALANCED (threshold 0.60).
+    detector_backend          — one of: "presidio", "deberta", "regex", or "ensemble".
+                                "ensemble" runs Presidio + DeBERTa + regex/heuristics.
+    deberta_model             — HuggingFace token-classification model used when
+                                detector_backend includes DeBERTa. Override for Q2 runs if needed.
+    sensitive_entities        — the only normalized entity types treated as routing-relevant PII;
+                                noisy resume entities (DATE_TIME, LOCATION, PERSON, NRP) are
+                                intentionally excluded because they produce too many false positives
     """
     local_model: str = "ollama/llama3.1:8b"
     local_api_base: str = "http://localhost:11434"
     cloud_model: str = "gpt-4o"
     score_threshold: float = 0.6
+    anonymization_sensitivity: AnonymizationSensitivity = AnonymizationSensitivity.BALANCED
     detector_backend: str = "presidio"
     deberta_model: str = "iiiorg/piiranha-v1-detect-personal-information"
     deberta_device: int = -1
@@ -97,6 +142,15 @@ class ModelConfig:
         "US_BANK_NUMBER",
         "US_PASSPORT",
     })
+
+    @property
+    def anonymization_threshold(self) -> float:
+        """Score threshold used when deciding what to redact during anonymization.
+
+        Derived from anonymization_sensitivity; independent of score_threshold
+        which governs routing decisions.
+        """
+        return _SENSITIVITY_TO_THRESHOLD[self.anonymization_sensitivity]
 
 
 # ---------------------------------------------------------------------------
@@ -643,8 +697,17 @@ class PrivacyRouter:
         return decision.destination
 
     def _anonymize_text(self, text: str) -> str:
+        """Redact PII from *text* according to anonymization_sensitivity.
+
+        Presidio detections are filtered by anonymization_threshold (derived from
+        the sensitivity knob), which is intentionally independent of score_threshold
+        used for routing decisions.  The regex fallback always fires because regexes
+        carry no confidence score.
+        """
         if not text:
             return text
+
+        anon_threshold = self.config.anonymization_threshold
 
         analyzer = _get_shared_analyzer()
         anonymizer = _get_shared_anonymizer()
@@ -654,7 +717,7 @@ class PrivacyRouter:
                 results = [
                     r for r in results
                     if getattr(r, "entity_type", "") in self.config.sensitive_entities
-                    and (getattr(r, "score", 0.0) or 0.0) >= self.config.score_threshold
+                    and (getattr(r, "score", 0.0) or 0.0) >= anon_threshold
                 ]
                 if results:
                     return anonymizer.anonymize(text=text, analyzer_results=results).text

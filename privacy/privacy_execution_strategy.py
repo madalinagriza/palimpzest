@@ -48,7 +48,14 @@ from palimpzest.query.optimizer.plan import PhysicalPlan
 from palimpzest.query.processor.config import QueryProcessorConfig
 from palimpzest.query.processor.query_processor_factory import QueryProcessorFactory
 
-from routing_stub import PrivacyRouter, RoutingGranularity, RouteDecision, execute_with_routing
+from routing_stub import (
+    AnonymizationSensitivity,
+    ModelConfig,
+    PrivacyRouter,
+    RouteDecision,
+    RoutingGranularity,
+    execute_with_routing,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +260,7 @@ def create_privacy_processor(
     config: QueryProcessorConfig | None = None,
     router: PrivacyRouter | None = None,
     granularity: RoutingGranularity = RoutingGranularity.OPERATOR,
+    sensitivity: AnonymizationSensitivity = AnonymizationSensitivity.BALANCED,
 ):
     """
     Build a QueryProcessor whose execution strategy is PrivacyAwareExecutionStrategy.
@@ -264,20 +272,35 @@ def create_privacy_processor(
     parameters from the already-created strategy so no re-parsing is needed.
 
     Args:
-        dataset: The PZ Dataset (logical plan) to process.
-        config:  QueryProcessorConfig; if None, PZ defaults are used.
+        dataset:      The PZ Dataset (logical plan) to process.
+        config:       QueryProcessorConfig; if None, PZ defaults are used.
         router:       PrivacyRouter instance; if None, a default one is created.
+                      When a router is provided its ModelConfig takes precedence
+                      over the *sensitivity* argument.
         granularity:  RoutingGranularity (OPERATOR/FIELD/DOCUMENT); default OPERATOR.
+        sensitivity:  AnonymizationSensitivity knob — controls how aggressively PII
+                      is redacted in the cloud_anonymized path.  Ignored when *router*
+                      is provided explicitly.
+                        PERMISSIVE   — redact only high-confidence detections (≥ 0.85)
+                        BALANCED     — default (≥ 0.60)
+                        CONSERVATIVE — redact even low-confidence detections (≥ 0.30)
 
     Returns:
         QueryProcessor with PrivacyAwareExecutionStrategy installed.
 
-    Example:
-        processor = create_privacy_processor(plan, config)
+    Example::
+
+        from routing_stub import AnonymizationSensitivity
+        processor = create_privacy_processor(
+            plan, config,
+            sensitivity=AnonymizationSensitivity.CONSERVATIVE,
+        )
         result = processor.execute()
         print(processor.execution_strategy.router.stats.summary())
     """
-    router = router or PrivacyRouter()
+    if router is None:
+        model_config = ModelConfig(anonymization_sensitivity=sensitivity)
+        router = PrivacyRouter(model_config)
     processor = QueryProcessorFactory.create_processor(dataset, config)
 
     existing = processor.execution_strategy

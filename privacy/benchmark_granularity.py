@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import palimpzest as pz
 
 from privacy_execution_strategy import create_privacy_processor
-from routing_stub import ModelConfig, PrivacyRouter, RoutingGranularity
+from routing_stub import ModelConfig, PrivacyRouter, RoutingGranularity, AnonymizationSensitivity, RoutingGranularity
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -133,6 +133,7 @@ def compute_metrics(
 
 def run_one(
     granularity: RoutingGranularity,
+    sensitivity: AnonymizationSensitivity,
     all_records: list[dict],
     dataset: ResumeDataset,
     config: pz.QueryProcessorConfig,
@@ -147,6 +148,7 @@ def run_one(
     router = PrivacyRouter(ModelConfig(
         local_model="openai/llama3.1:8b",
         local_api_base="http://localhost:11434/v1",
+        anonymization_sensitivity=sensitivity,
     ))
     processor = create_privacy_processor(plan, config, router=router, granularity=granularity)
 
@@ -184,13 +186,14 @@ def run_one(
 # Pretty-print results table
 # ---------------------------------------------------------------------------
 
-def print_table(rows: list[dict]):
+def print_table(rows: list[dict], sensitivity: AnonymizationSensitivity):
+    print(f"\nAnonymization sensitivity: {sensitivity.value.upper()}")
     header = (
         f"{'Granularity':<12}  {'Local%':>7}  {'Cloud%':>7}  "
         f"{'P':>6}  {'R':>6}  {'F1':>6}  "
         f"{'TP':>4}  {'FP':>4}  {'TN':>4}  {'FN':>4}  {'Time(s)':>8}"
     )
-    print("\n" + "=" * len(header))
+    print("=" * len(header))
     print(header)
     print("-" * len(header))
     for r in rows:
@@ -216,12 +219,28 @@ def print_table(rows: list[dict]):
 # Main
 # ---------------------------------------------------------------------------
 
+_SENSITIVITY_CHOICES = [s.value for s in AnonymizationSensitivity]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample", type=int, default=5,
                         help="Records per PII group (default: 5 → 20 total)")
+    parser.add_argument(
+        "--sensitivity",
+        choices=_SENSITIVITY_CHOICES,
+        default=AnonymizationSensitivity.BALANCED.value,
+        help=(
+            "Anonymization aggressiveness for the cloud_anonymized path. "
+            "'permissive' redacts only high-confidence PII (≥0.85); "
+            "'balanced' uses the default threshold (≥0.60); "
+            "'conservative' redacts even low-confidence detections (≥0.30). "
+            f"Default: {AnonymizationSensitivity.BALANCED.value}"
+        ),
+    )
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
+    sensitivity = AnonymizationSensitivity(args.sensitivity)
 
     if not os.path.exists(DATA_PATH):
         print(f"ERROR: {DATA_PATH} not found.")
@@ -248,14 +267,14 @@ def main():
         RoutingGranularity.FIELD,
         RoutingGranularity.DOCUMENT,
     ]:
-        print(f"--- Running granularity: {granularity.value} ---")
-        row = run_one(granularity, all_records, dataset, config, args.verbose)
+        print(f"--- Running granularity: {granularity.value}  sensitivity: {sensitivity.value} ---")
+        row = run_one(granularity, sensitivity, all_records, dataset, config, args.verbose)
         results.append(row)
         print(f"  done in {row['elapsed']:.1f}s  "
               f"kept={row['kept']}/{row['total']}  "
               f"F1={row['f1']:.3f}  {row['stats_summary']}\n")
 
-    print_table(results)
+    print_table(results, sensitivity)
 
 
 if __name__ == "__main__":
