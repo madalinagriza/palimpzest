@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import palimpzest as pz
 
 from privacy_execution_strategy import create_privacy_processor
-from routing_stub import ModelConfig, PrivacyRouter, RoutingGranularity, AnonymizationSensitivity, RoutingGranularity
+from routing_stub import AnonymizationSensitivity, ModelConfig, PrivacyRouter, RoutingGranularity
 
 # ---------------------------------------------------------------------------
 # Configuration
