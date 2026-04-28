@@ -104,6 +104,23 @@ No LLM calls — pure routing accuracy.
 .venv/bin/python demos/benchmark_q2.py --score-threshold 0.5 --out data/q2_threshold_0.5.json
 ```
 
+### Q3 — Query-intent routing (dry-run)
+
+Compares three-way routing (local / cloud_anonymized / cloud) against a naive
+two-way baseline (any PII → local) across six operators with varying query sensitivity.
+No LLM calls — pure routing accuracy.
+
+```bash
+# Default: presidio backend, 25 records/group
+.venv/bin/python demos/benchmark_q3.py
+
+# Larger sample + save results
+.venv/bin/python demos/benchmark_q3.py --sample 100 --out data/q3_results.json
+
+# Regex-only (no Presidio needed)
+.venv/bin/python demos/benchmark_q3.py --backend regex --sample 100
+```
+
 ### Q1 end-to-end (actual LLM calls)
 
 Requires Ollama running with `llama3.1:8b`.
