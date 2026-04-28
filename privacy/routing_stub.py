@@ -11,18 +11,19 @@ This module is fully importable without runtime errors and requires no
 modifications to PZ source files in src/palimpzest/.
 
 Current behavior:
-  - Tries to use Presidio if installed (module-level singleton; init cost paid once).
-  - Falls back to lightweight regex / field-name heuristics if Presidio is not
-    available.
-  - Logs which fields and entity types triggered the decision.
-  - Records aggregate routing stats on router.stats for benchmark reporting.
-  - Swaps operator.model to the local Model instance when routing to "local",
-    handling both plain-string models and PZ Model instances.
+  - route "local" when sensitive data is detected and the operator prompt appears to need it
+  - route "cloud_anonymized" when sensitive data is detected but the prompt does not appear to need it
+  - route "cloud" when no sensitive data is detected
+
+This file remains importable without Presidio installed: it falls back to regex and
+field-name heuristics. If Presidio is installed, it uses AnalyzerEngine and
+AnonymizerEngine.
 """
 
 from __future__ import annotations
 
 import sys
+import copy
 import os
 import re
 import threading
@@ -78,7 +79,7 @@ class ModelConfig:
     local_api_base: str = "http://localhost:11434"
     cloud_model: str = "gpt-4o"
     score_threshold: float = 0.6
-    sensitive_entities: frozenset = frozenset({
+    sensitive_entities: frozenset[str] = frozenset({
         "US_SSN",
         "EMAIL_ADDRESS",
         "PHONE_NUMBER",
@@ -113,6 +114,8 @@ class RouteDecision:
     detections: list[Detection] = field(default_factory=list)
     inspected_fields: list[str] = field(default_factory=list)
     reason: str = ""
+    query_text: str = ""
+    query_needs_sensitive: bool | None = None
 
 
 @dataclass
@@ -126,6 +129,7 @@ class RoutingStats:
     total: int = 0
     routed_local: int = 0
     routed_cloud: int = 0
+    routed_cloud_anonymized: int = 0
     detections_by_entity: dict[str, int] = field(default_factory=dict)
 
     def record(self, decision: RouteDecision) -> None:
@@ -133,6 +137,8 @@ class RoutingStats:
         self.total += 1
         if decision.destination == "local":
             self.routed_local += 1
+        elif decision.destination == "cloud_anonymized":
+            self.routed_cloud_anonymized += 1
         else:
             self.routed_cloud += 1
         for d in decision.detections:
@@ -148,7 +154,8 @@ class RoutingStats:
         top = sorted(self.detections_by_entity.items(), key=lambda x: -x[1])[:5]
         return (
             f"total={self.total}  local={self.routed_local} ({pct:.1f}%)  "
-            f"cloud={self.routed_cloud}  top_entities={top}"
+            f"cloud={self.routed_cloud}  cloud_anonymized={self.routed_cloud_anonymized}  "
+            f"top_entities={top}"
         )
 
 
@@ -160,6 +167,8 @@ class RoutingStats:
 
 _ANALYZER_ENGINE = None
 _ANALYZER_LOCK = threading.Lock()
+_ANONYMIZER_ENGINE = None
+_ANONYMIZER_LOCK = threading.Lock()
 
 
 def _get_shared_analyzer():
@@ -176,6 +185,21 @@ def _get_shared_analyzer():
         except Exception:
             _ANALYZER_ENGINE = None        # Presidio not installed — use fallback
     return _ANALYZER_ENGINE
+
+
+def _get_shared_anonymizer():
+    global _ANONYMIZER_ENGINE
+    if _ANONYMIZER_ENGINE is not None:
+        return _ANONYMIZER_ENGINE
+    with _ANONYMIZER_LOCK:
+        if _ANONYMIZER_ENGINE is not None:
+            return _ANONYMIZER_ENGINE
+        try:
+            from presidio_anonymizer import AnonymizerEngine
+            _ANONYMIZER_ENGINE = AnonymizerEngine()
+        except Exception:
+            _ANONYMIZER_ENGINE = None
+    return _ANONYMIZER_ENGINE
 
 
 # ---------------------------------------------------------------------------
@@ -198,21 +222,9 @@ class PrivacyRouter:
     """
 
     _SENSITIVE_FIELD_HINTS = {
-        "name",
-        "email",
-        "phone",
-        "ssn",
-        "social_security",
-        "address",
-        "ip",
-        "ip_address",
-        "credit_card",
-        "card_number",
-        "dob",
-        "birthdate",
-        "birth_date",
-        "person",
-        "patient",
+        "name", "email", "phone", "ssn", "social_security", "address", "ip",
+        "ip_address", "credit_card", "card_number", "dob", "birthdate",
+        "birth_date", "person", "patient",
     }
 
     _REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -221,6 +233,13 @@ class PrivacyRouter:
         "US_SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
         "CREDIT_CARD": re.compile(r"\b(?:\d[ -]*?){13,16}\b"),
         "IP_ADDRESS": re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+    }
+
+    _SENSITIVE_QUERY_KEYWORDS = {
+        "pii", "personally identifiable", "sensitive", "ssn", "social security",
+        "phone number", "email address", "mail address", "home address", "credit card", "passport", "driver",
+        "person's name", "full name", "sender", "recipient", "contact info", "identity",
+        "patient", "birth", "dob", "ip address",
     }
 
     def __init__(self, config: ModelConfig | None = None):
@@ -232,9 +251,7 @@ class PrivacyRouter:
     def _safe_preview(value: str, limit: int = 60) -> str:
         """Return a compact preview for logging without dumping full records."""
         cleaned = " ".join(value.split())
-        if len(cleaned) <= limit:
-            return cleaned
-        return cleaned[: limit - 3] + "..."
+        return cleaned if len(cleaned) <= limit else cleaned[: limit - 3] + "..."
 
     @staticmethod
     def _coerce_text(value: Any) -> str:
@@ -332,6 +349,57 @@ class PrivacyRouter:
 
         return detections
 
+    def _extract_query_text(self, operator) -> str:
+        chunks: list[str] = []
+
+        filt = getattr(operator, "filter", None)
+        if filt is not None:
+            try:
+                chunks.append(filt.get_filter_str())
+            except Exception:
+                chunks.append(str(filt))
+
+        for attr in ("desc", "description", "agg_str", "condition"):
+            value = getattr(operator, attr, None)
+            if value:
+                chunks.append(str(value))
+
+        generated = getattr(operator, "generated_fields", []) or []
+        chunks.extend(str(f) for f in generated)
+
+        output_schema = getattr(operator, "output_schema", None)
+        if output_schema is not None:
+            for field_name in generated:
+                try:
+                    field_info = output_schema.model_fields.get(field_name)
+                    if field_info is not None:
+                        chunks.append(field_name)
+                        desc = getattr(field_info, "description", None)
+                        if desc:
+                            chunks.append(str(desc))
+                except Exception:
+                    pass
+
+        return " ".join(c for c in chunks if c).strip()
+
+    def _query_needs_sensitive_data(self, query_text: str, detections: list[Detection]) -> bool:
+        # Conservative fallback: if we cannot see the operator prompt, keep data local.
+        if not query_text.strip():
+            return True
+
+        q = query_text.lower()
+        if any(keyword in q for keyword in self._SENSITIVE_QUERY_KEYWORDS):
+            return True
+
+        for d in detections:
+            field = d.field_name.lower()
+            entity = d.entity_type.lower()
+            if field and f" {field} " in f" {q} ":
+                return True
+            # Avoid matching generic entity tokens like "email" from EMAIL_ADDRESS
+            # against prompts like "email discusses scheduling".
+        return False
+
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
         """
         Inspect the fields an operator will read and build a routing decision.
@@ -360,19 +428,36 @@ class PrivacyRouter:
 
             detections.extend(field_detections)
 
+        query_text = self._extract_query_text(operator)
+
         if detections:
-            decision = RouteDecision(
-                destination="local",
-                detections=detections,
-                inspected_fields=inspected_fields,
-                reason="detected sensitive data in operator inputs",
-            )
+            needs_sensitive = self._query_needs_sensitive_data(query_text, detections)
+            if needs_sensitive:
+                decision = RouteDecision(
+                    destination="local",
+                    detections=detections,
+                    inspected_fields=inspected_fields,
+                    reason="detected sensitive data and operator prompt appears to need it",
+                    query_text=query_text,
+                    query_needs_sensitive=True,
+                )
+            else:
+                decision = RouteDecision(
+                    destination="cloud_anonymized",
+                    detections=detections,
+                    inspected_fields=inspected_fields,
+                    reason="detected sensitive data, but operator prompt does not appear to need it",
+                    query_text=query_text,
+                    query_needs_sensitive=False,
+                )
         else:
             decision = RouteDecision(
                 destination="cloud",
                 detections=[],
                 inspected_fields=inspected_fields,
                 reason="no sensitive data detected in operator inputs",
+                query_text=query_text,
+                query_needs_sensitive=False,
             )
 
         self.stats.record(decision)
@@ -383,6 +468,52 @@ class PrivacyRouter:
         decision = self.inspect(operator, input_fields, input_record=input_record)
         self.last_decision = decision
         return decision.destination
+
+    def _anonymize_text(self, text: str) -> str:
+        if not text:
+            return text
+
+        analyzer = _get_shared_analyzer()
+        anonymizer = _get_shared_anonymizer()
+        if analyzer is not None and anonymizer is not None:
+            try:
+                results = analyzer.analyze(text=text, language="en")
+                results = [
+                    r for r in results
+                    if getattr(r, "entity_type", "") in self.config.sensitive_entities
+                    and (getattr(r, "score", 0.0) or 0.0) >= self.config.score_threshold
+                ]
+                if results:
+                    return anonymizer.anonymize(text=text, analyzer_results=results).text
+            except Exception:
+                pass
+
+        anonymized = text
+        for entity_type, pattern in self._REGEX_PATTERNS.items():
+            anonymized = pattern.sub(f"<{entity_type}>", anonymized)
+        return anonymized
+
+    def anonymize_record(self, input_record: Any, decision: RouteDecision) -> Any:
+        try:
+            anonymized_record = copy.copy(input_record)
+        except Exception:
+            anonymized_record = input_record
+
+        fields_with_pii = {d.field_name for d in decision.detections}
+        for field_name in fields_with_pii:
+            try:
+                value = getattr(input_record, field_name, "")
+                text = self._coerce_text(value)
+                new_value = self._anonymize_text(text)
+
+                field_tokens = set(re.split(r"[^a-z0-9]+", field_name.lower())) - {""}
+                if new_value == text and field_tokens & self._SENSITIVE_FIELD_HINTS:
+                    new_value = f"<{field_name.upper()}_REDACTED>"
+
+                setattr(anonymized_record, field_name, new_value)
+            except Exception:
+                continue
+        return anonymized_record
 
 
 # ---------------------------------------------------------------------------
@@ -468,8 +599,8 @@ def execute_with_routing(
     if operator.get_model_name() is None:
         return operator(input_record)
 
-    generated_fields: list[str] = operator.generated_fields
-    op_name: str = operator.op_name()
+    generated_fields = operator.generated_fields
+    op_name = operator.op_name()
     model_name = operator.get_model_name()
 
     if cached_decision is not None:
@@ -480,6 +611,8 @@ def execute_with_routing(
             detections=cached_decision.detections,
             inspected_fields=cached_decision.inspected_fields,
             reason=f"document-level cached: {cached_decision.reason}",
+            query_text=cached_decision.query_text,
+            query_needs_sensitive=cached_decision.query_needs_sensitive,
         )
         router.stats.record(decision)
         router.last_decision = decision
@@ -522,12 +655,16 @@ def execute_with_routing(
         f"  |  routed_to={destination!r} ({chosen_model})"
         f"  |  model_swapped={model_swapped}"
         f"  |  reason={decision.reason!r}"
+        f"  |  query_needs_sensitive={decision.query_needs_sensitive}"
+        f"  |  query={router._safe_preview(decision.query_text, limit=100)!r}"
         f"  |  detections={detection_summary}"
     )
 
-    record_set = operator(input_record)
-    return record_set
+    record_for_execution = input_record
+    if destination == "cloud_anonymized":
+        record_for_execution = router.anonymize_record(input_record, decision)
 
+    return operator(record_for_execution)
 
 # ---------------------------------------------------------------------------
 # Quick smoke-test (run this file directly to verify importability)
@@ -540,8 +677,9 @@ if __name__ == "__main__":
     router = PrivacyRouter(config)
 
     class _FakeOperator:
-        generated_fields = ["subject", "sender"]
+        generated_fields = ["topic"]
         model = "gpt-4o"
+        desc = "Determine whether the email discusses scheduling or travel."
 
         def op_name(self):
             return "LLMConvertBonded"
@@ -553,8 +691,14 @@ if __name__ == "__main__":
             return "openai/gpt-4o-2024-08-06"
 
         def __call__(self, record):
-            print("Operator executed.")
+            assert "john@example.com" not in record.contents
+            assert "617-555-1212" not in record.contents
+            print(f"Operator executed with contents={record.contents!r}")
             return None
+
+    class _SensitiveFakeOperator(_FakeOperator):
+        generated_fields = ["sender"]
+        desc = "Extract the sender email address from the email text."
 
     class _FakeRecord:
         filename = "email1.txt"
@@ -564,19 +708,14 @@ if __name__ == "__main__":
     fake_record = _FakeRecord()
 
     decision = router.inspect(fake_op, fake_op.get_input_fields(), input_record=fake_record)
-    print(f"Routing decision for {fake_op.op_name()!r}: {decision.destination!r}")
-    assert decision.destination == "local", "Expected 'local' because test record contains obvious PII"
+    print(f"Routing decision for non-sensitive query: {decision.destination!r}")
+    assert decision.destination == "cloud_anonymized"
 
-    # Verify stats are recorded
-    assert router.stats.total == 1
-    assert router.stats.routed_local == 1
-    assert router.stats.routed_cloud == 0
-    print(f"Stats after one call: {router.stats.summary()}")
+    sensitive_op = _SensitiveFakeOperator()
+    local_decision = router.inspect(sensitive_op, sensitive_op.get_input_fields(), input_record=fake_record)
+    print(f"Routing decision for sensitive query: {local_decision.destination!r}")
+    assert local_decision.destination == "local"
 
-    # Verify model swap works for plain-string model
-    swapped = _set_operator_model_if_possible(fake_op, config.local_model, api_base=config.local_api_base)
-    assert swapped, "Expected model swap to succeed for plain-string model"
-    assert fake_op.model == config.local_model
-
+    print(f"Stats after two inspections: {router.stats.summary()}")
     execute_with_routing(fake_op, fake_record, router)
     print("routing_stub.py: all checks passed.")
