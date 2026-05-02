@@ -831,6 +831,7 @@ class PrivacyRouter:
 
         analyzer = _get_shared_analyzer()
         anonymizer = _get_shared_anonymizer()
+        anonymized = text
         if analyzer is not None and anonymizer is not None:
             try:
                 results = analyzer.analyze(text=text, language="en")
@@ -840,11 +841,11 @@ class PrivacyRouter:
                     and (getattr(r, "score", 0.0) or 0.0) >= anon_threshold
                 ]
                 if results:
-                    return anonymizer.anonymize(text=text, analyzer_results=results).text
+                    anonymized = anonymizer.anonymize(text=text, analyzer_results=results).text
             except Exception:
                 pass
 
-        anonymized = text
+        # Regex pass always runs — catches anything Presidio scored below threshold.
         for entity_type, pattern in self._REGEX_PATTERNS.items():
             anonymized = pattern.sub(f"<{entity_type}>", anonymized)
         return anonymized
@@ -879,15 +880,18 @@ class PrivacyRouter:
 def _set_operator_model_if_possible(
     operator,
     chosen_model: str,
-    api_base: str = "http://localhost:11434",
+    api_base: str | None = None,
 ) -> bool:
     """
     Best-effort model override.
 
     Handles two cases:
       1. operator.model is a plain string  — overwrite directly.
-      2. operator.model is a PZ Model instance — construct a new Model via
-         the vLLM/api_base path so PZ's generator can reach the local server.
+      2. operator.model is a PZ Model instance — reconstruct via pz.Model()
+         so PZ's generator uses the right endpoint.
+
+    api_base should only be set when routing to the local model (Ollama).
+    For cloud routing pass None so the cloud model uses its default endpoint.
 
     Returns True if the swap succeeded, False otherwise.
     """
@@ -896,18 +900,19 @@ def _set_operator_model_if_possible(
 
     current_model = getattr(operator, "model")
 
-    # Case 1: plain string
+    # Case 1: plain string — overwrite directly; LiteLLM routes by string prefix
     if isinstance(current_model, str):
         setattr(operator, "model", chosen_model)
         return True
 
-    # Case 2: PZ Model instance — use the vLLM constructor path
+    # Case 2: PZ Model instance — use the public pz.Model() factory.
+    # palimpzest.constants.Model is an Enum and cannot be constructed with
+    # api_base kwargs, so we use the public API instead.
     try:
-        from palimpzest.constants import Model as PZModel
-        if isinstance(current_model, PZModel):
-            new_model = PZModel(chosen_model, api_base=api_base)
-            setattr(operator, "model", new_model)
-            return True
+        import palimpzest as pz
+        new_model = pz.Model(chosen_model, api_base=api_base) if api_base else pz.Model(chosen_model)
+        setattr(operator, "model", new_model)
+        return True
     except Exception:
         pass
 
@@ -985,11 +990,12 @@ def execute_with_routing(
     input_fields = decision.inspected_fields
 
     chosen_model = (
-        router.config.cloud_model if destination == "cloud"
-        else router.config.local_model
+        router.config.local_model if destination == "local"
+        else router.config.cloud_model
     )
     model_swapped = _set_operator_model_if_possible(
-        operator, chosen_model, api_base=router.config.local_api_base
+        operator, chosen_model,
+        api_base=router.config.local_api_base if destination == "local" else None,
     )
 
     detection_summary = [

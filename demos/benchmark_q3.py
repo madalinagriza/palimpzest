@@ -278,14 +278,25 @@ class OperatorMetrics:
 
     @property
     def quality_savings(self) -> int:
-        """Calls that get cloud quality (cloud_anonymized) instead of being forced local."""
-        return self.two_way_local - self.n_local
+        """Calls correctly routed cloud_anonymized instead of local (non-sensitive ops only).
+        For sensitive operators this is always 0 — cloud_anonymized on a sensitive op is a
+        privacy violation, not a saving."""
+        if self.sensitive_query:
+            return 0
+        return self.n_cloud_anon
 
     @property
     def quality_savings_pct(self) -> float:
-        if self.two_way_local == 0:
+        if self.sensitive_query or self.two_way_local == 0:
             return 0.0
-        return 100.0 * self.quality_savings / self.two_way_local
+        return 100.0 * self.n_cloud_anon / self.two_way_local
+
+    @property
+    def privacy_violations(self) -> int:
+        """PII records routed to cloud_anonymized for a sensitive query (should be local)."""
+        if not self.sensitive_query:
+            return 0
+        return self.n_cloud_anon
 
 
 # ---------------------------------------------------------------------------
@@ -544,13 +555,23 @@ def print_comparison(kw_metrics: list[OperatorMetrics], llm_metrics: list[Operat
         kw_str  = f"{'OK' if kw_risk  == 0 else f'LEAK {kw_risk}'}"
         llm_str = f"{'OK' if llm_risk == 0 else f'LEAK {llm_risk}'}"
         print(f"    {kw.op_name:<22} keyword={kw_str:<12} llm={llm_str}")
-    print(f"\n  Quality savings comparison (calls rescued from local → cloud_anonymized):")
+    print(f"\n  Quality savings (non-sensitive ops: calls rescued to cloud_anonymized):")
     for kw, llm in zip(kw_metrics, llm_metrics):
         if kw.sensitive_query:
             continue
         print(
             f"    {kw.op_name:<22} keyword={kw.quality_savings:<6}  "
             f"llm={llm.quality_savings:<6}"
+        )
+    print(f"\n  Privacy violations (sensitive ops: PII records misrouted to cloud_anonymized):")
+    for kw, llm in zip(kw_metrics, llm_metrics):
+        if not kw.sensitive_query:
+            continue
+        kw_v = f"{'OK' if kw.privacy_violations == 0 else str(kw.privacy_violations)}"
+        llm_v = f"{'OK' if llm.privacy_violations == 0 else str(llm.privacy_violations)}"
+        print(
+            f"    {kw.op_name:<22} keyword={kw_v:<6}  "
+            f"llm={llm_v:<6}"
         )
     print(f"{'='*90}\n")
 
@@ -569,6 +590,7 @@ def _serialize_metrics(metrics: list[OperatorMetrics]) -> list[dict]:
             "two_way_local": m.two_way_local,
             "quality_savings": m.quality_savings,
             "quality_savings_pct": m.quality_savings_pct,
+            "privacy_violations": m.privacy_violations,
             "by_group": m.by_group,
         }
         for m in metrics
