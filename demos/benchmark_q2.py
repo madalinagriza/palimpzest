@@ -37,7 +37,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -45,7 +45,7 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "privacy"))
 
-from routing_stub import PrivacyRouter, RoutingGranularity, ModelConfig
+from routing_stub import PrivacyRouter, ModelConfig
 
 ALL_BACKENDS = ["presidio", "deberta", "regex", "ensemble"]
 

@@ -357,9 +357,7 @@ class PrivacyRouter:
         self.config = config or ModelConfig()
         self.last_decision: RouteDecision | None = None
         self.stats = RoutingStats()
-        # Cache LLM intent decisions keyed by (query_text, entity_type) so Ollama
-        # is called at most once per unique (operator description, entity type) pair
-        # across the entire benchmark run.
+        # Cache for per-entity LLM intent: (query_text, entity_type) → bool
         self._llm_intent_cache: dict[tuple[str, str], bool] = {}
 
     @staticmethod
@@ -715,6 +713,8 @@ class PrivacyRouter:
         if not query_text.strip():
             return True
         for d in detections:
+            if d.entity_type.startswith("FIELD_HINT:"):
+                continue
             cache_key = (query_text, d.entity_type, d.preview or "")
             if cache_key not in self._llm_intent_cache:
                 self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
@@ -722,7 +722,8 @@ class PrivacyRouter:
                 )
             if self._llm_intent_cache[cache_key]:
                 return True
-        return False
+        # If all detections were FIELD_HINT only, fall back to keyword matching
+        return self._query_needs_sensitive_data(query_text, detections)
 
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
         """
