@@ -1,0 +1,1106 @@
+{
+  "sample_per_group": 25,
+  "score_threshold": 0.6,
+  "backend": "presidio",
+  "intent": "both",
+  "keyword": {
+    "operators": [
+      {
+        "op_name": "extract_ssn",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 45,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 20,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 25,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "extract_contact",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 45,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 20,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 25,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "extract_identity",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 48,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 23,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 25,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "summarize_skills",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "classify_industry",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "rate_education",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "find_contact",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 55,
+        "accuracy": 0.55,
+        "n_local": 0,
+        "n_cloud_anonymized": 45,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 45,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 20,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "attribute_authorship",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 52,
+        "accuracy": 0.52,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "assess_seniority",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "find_age",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 52,
+        "accuracy": 0.52,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "score_relevance",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "infer_location",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 55,
+        "accuracy": 0.55,
+        "n_local": 0,
+        "n_cloud_anonymized": 45,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 45,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 20,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "fraud_check",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 52,
+        "accuracy": 0.52,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "summarize_birth_of_career",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      }
+    ]
+  },
+  "llm": {
+    "operators": [
+      {
+        "op_name": "extract_ssn",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 55,
+        "accuracy": 0.55,
+        "n_local": 0,
+        "n_cloud_anonymized": 45,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 45,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 20,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "extract_contact",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 95,
+        "accuracy": 0.95,
+        "n_local": 40,
+        "n_cloud_anonymized": 5,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 5,
+        "quality_savings_pct": 11.11111111111111,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 20,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 20,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "extract_identity",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 52,
+        "accuracy": 0.52,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "summarize_skills",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "classify_industry",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "rate_education",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "find_contact",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 56,
+        "accuracy": 0.56,
+        "n_local": 1,
+        "n_cloud_anonymized": 44,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 44,
+        "quality_savings_pct": 97.77777777777777,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 20,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 1,
+            "cloud_anonymized": 24,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "attribute_authorship",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 58,
+        "accuracy": 0.58,
+        "n_local": 6,
+        "n_cloud_anonymized": 42,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 42,
+        "quality_savings_pct": 87.5,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 6,
+            "cloud_anonymized": 17,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "assess_seniority",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "find_age",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 59,
+        "accuracy": 0.59,
+        "n_local": 7,
+        "n_cloud_anonymized": 41,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 41,
+        "quality_savings_pct": 85.41666666666667,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 6,
+            "cloud_anonymized": 17,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 1,
+            "cloud_anonymized": 24,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "score_relevance",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "infer_location",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 55,
+        "accuracy": 0.55,
+        "n_local": 0,
+        "n_cloud_anonymized": 45,
+        "n_cloud": 55,
+        "two_way_local": 45,
+        "quality_savings": 45,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 20,
+            "cloud": 5,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "fraud_check",
+        "sensitive_query": true,
+        "total": 100,
+        "correct": 79,
+        "accuracy": 0.79,
+        "n_local": 27,
+        "n_cloud_anonymized": 21,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 21,
+        "quality_savings_pct": 43.75,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 20,
+            "cloud_anonymized": 3,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 7,
+            "cloud_anonymized": 18,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      },
+      {
+        "op_name": "summarize_birth_of_career",
+        "sensitive_query": false,
+        "total": 100,
+        "correct": 100,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 48,
+        "n_cloud": 52,
+        "two_way_local": 48,
+        "quality_savings": 48,
+        "quality_savings_pct": 100.0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 25,
+            "total": 25
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 23,
+            "cloud": 2,
+            "total": 25
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 25,
+            "cloud": 0,
+            "total": 25
+          }
+        }
+      }
+    ]
+  }
+}

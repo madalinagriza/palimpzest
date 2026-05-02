@@ -89,24 +89,33 @@ BENCHMARK_PAIRS = [
 
 
 # ── Ollama call ───────────────────────────────────────────────────────────────
-def ask_ollama(system: str, prompt: str, model: str) -> tuple[str, bool]:
-    payload = json.dumps({
-        "model": model,
-        "system": system,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0, "num_predict": 16},
-    }).encode()
-    req = urllib.request.Request(
-        "http://localhost:11434/api/generate",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        result = json.loads(resp.read())
-    raw = result.get("response", "").strip()
-    first_word = raw.lower().split()[0].rstrip(".,!") if raw.split() else ""
-    return raw, first_word == "yes"
+def ask_ollama(system: str, prompt: str, model: str) -> tuple[str, str]:
+    """Return (raw_response, verdict) where verdict is 'yes', 'no', or 'error'."""
+    try:
+        payload = json.dumps({
+            "model": model,
+            "system": system,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0, "num_predict": 16},
+        }).encode()
+        req = urllib.request.Request(
+            "http://localhost:11434/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        raw = result.get("response", "").strip()
+        first_word = raw.lower().split()[0].rstrip(".,!") if raw.split() else ""
+        if first_word == "yes":
+            return raw, "yes"
+        elif first_word == "no":
+            return raw, "no"
+        else:
+            return raw, "error"
+    except Exception as e:
+        return str(e), "error"
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -126,6 +135,7 @@ def main() -> None:
     print("=" * 90)
 
     correct = {m: 0 for m in active}
+    errors  = {m: 0 for m in active}
     total = 0
 
     for query, entity, ground_truth in pairs:
@@ -138,26 +148,30 @@ def main() -> None:
 
         for mode_name, builder in active.items():
             system, prompt = builder(query, entity)
-            try:
-                raw, decision = ask_ollama(system, prompt, args.model)
-                verdict = "YES -> local" if decision else "NO  -> cloud_anon"
+            raw, verdict = ask_ollama(system, prompt, args.model)
+            if verdict == "error":
+                errors[mode_name] += 1
+                print(f"  [{mode_name:10}]  raw={repr(raw):<30}  ERROR (not counted)")
+            else:
+                decision = verdict == "yes"
+                label_str = "YES -> local" if decision else "NO  -> cloud_anon"
                 correct_str = ""
                 if ground_truth is not None:
                     ok = decision == ground_truth
                     correct_str = "  OK" if ok else "  XX"
                     if ok:
                         correct[mode_name] += 1
-                print(f"  [{mode_name:10}]  raw={repr(raw):<20}  {verdict}{correct_str}")
-            except Exception as e:
-                print(f"  [{mode_name:10}]  ERROR: {e}")
+                print(f"  [{mode_name:10}]  raw={repr(raw):<30}  {label_str}{correct_str}")
 
         total += 1
         print("-" * 90)
 
-    if total > 1 and any(v > 0 for v in correct.values()):
-        print(f"\nAccuracy over {total} pairs:")
+    if total > 1:
+        print(f"\nResults over {total} pairs:")
         for mode_name in active:
-            print(f"  {mode_name:12}: {correct[mode_name]}/{total}  ({correct[mode_name]/total*100:.0f}%)")
+            answered = total - errors[mode_name]
+            acc_str = f"{correct[mode_name]}/{answered}  ({correct[mode_name]/answered*100:.0f}%)" if answered else "n/a"
+            print(f"  {mode_name:12}: accuracy={acc_str}  errors={errors[mode_name]}/{total}")
 
 
 if __name__ == "__main__":

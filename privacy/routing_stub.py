@@ -180,6 +180,7 @@ class RouteDecision:
     reason: str = ""
     query_text: str = ""
     query_needs_sensitive: bool | None = None
+    llm_error: bool = False
 
 
 @dataclass
@@ -628,12 +629,10 @@ class PrivacyRouter:
         "US_PASSPORT":       "passport number",
     }
 
-    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> bool:
+    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> bool | None:
         """
         Ask Ollama whether a query needs a specific PII type (per_entity mode).
-        Uses a counterfactual frame: if this data were redacted, would the answer degrade?
-        Cached by caller — at most one Ollama call per (query_text, entity_type) pair.
-        Falls back to keyword matching if Ollama is unreachable.
+        Returns True (yes), False (no), or None (error / unexpected response).
         """
         label = self._ENTITY_LABELS.get(entity_type, entity_type)
         system = (
@@ -651,11 +650,10 @@ class PrivacyRouter:
         )
         return self._ollama_yes_no(system, prompt)
 
-    def _ask_llm_needs_any_pii(self, query_text: str) -> bool:
+    def _ask_llm_needs_any_pii(self, query_text: str) -> bool | None:
         """
         Ask Ollama whether a query needs *any* personal data (general mode).
-        One call per unique query text, regardless of how many entity types were detected.
-        Falls back to keyword matching if Ollama is unreachable.
+        Returns True (yes), False (no), or None (error / unexpected response).
         """
         system = (
             "You are a data privacy classifier. "
@@ -672,8 +670,11 @@ class PrivacyRouter:
         )
         return self._ollama_yes_no(system, prompt)
 
-    def _ollama_yes_no(self, system: str, prompt: str) -> bool:
-        """Send a yes/no prompt to Ollama and parse the response."""
+    def _ollama_yes_no(self, system: str, prompt: str) -> bool | None:
+        """Send a yes/no prompt to Ollama.
+
+        Returns True (yes), False (no), or None (error / unexpected response).
+        """
         import urllib.request as _urlreq
         import json as _json
 
@@ -692,30 +693,40 @@ class PrivacyRouter:
             )
             with _urlreq.urlopen(req, timeout=30) as resp:
                 result = _json.loads(resp.read())
-                answer = result.get("response", "").strip().lower()
-                first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
-                return first_word == "yes"
+            answer = result.get("response", "").strip().lower()
+            first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
+            if first_word == "yes":
+                return True
+            elif first_word == "no":
+                return False
+            else:
+                return None  # unexpected / garbled response
         except Exception:
-            # Ollama unreachable — conservative fallback: assume PII is needed.
-            return True
+            return None  # Ollama unreachable or request failed
 
-    def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> bool:
+    def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> bool | None:
         """
         LLM-based intent detection. Asks Ollama whether the query needs each
         detected entity type. Answers are cached so Ollama is called once per
         unique (query_text, entity_type) pair, not once per record.
+
+        Returns True (needs PII), False (does not need PII), or None (LLM error).
         """
         if not query_text.strip():
             return True
+        any_error = False
         for d in detections:
             cache_key = (query_text, d.entity_type)
             if cache_key not in self._llm_intent_cache:
                 self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
                     query_text, d.entity_type
                 )
-            if self._llm_intent_cache[cache_key]:
+            result = self._llm_intent_cache[cache_key]
+            if result is True:
                 return True
-        return False
+            if result is None:
+                any_error = True
+        return None if any_error else False
 
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
         """
