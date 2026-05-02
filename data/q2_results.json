@@ -1,5 +1,5 @@
 {
-  "sample_per_group": 100,
+  "sample_per_group": 250,
   "score_threshold": 0.6,
   "backends": [
     "presidio",
@@ -10,241 +10,41 @@
   "metrics": [
     {
       "backend": "presidio",
-      "total": 400,
-      "tp": 196,
-      "tn": 190,
-      "fp": 10,
-      "fn": 4,
-      "recall": 0.98,
-      "specificity": 0.95,
-      "precision": 0.9514563106796117,
-      "f1": 0.9655172413793104,
-      "local_rate": 0.515,
-      "elapsed_s": 43.51521015167236,
+      "total": 1000,
+      "tp": 494,
+      "tn": 462,
+      "fp": 38,
+      "fn": 6,
+      "recall": 0.988,
+      "specificity": 0.924,
+      "precision": 0.9285714285714286,
+      "f1": 0.9573643410852714,
+      "local_rate": 0.532,
+      "elapsed_s": 97.29973196983337,
       "top_entities": [
         [
           "PHONE_NUMBER",
-          258
+          663
         ],
         [
           "US_SSN",
-          198
+          493
         ],
         [
           "FIELD_HINT:PHONE",
-          157
+          405
         ],
         [
           "FIELD_HINT:SSN",
+          250
+        ],
+        [
+          "FIELD_HINT:NAME",
+          128
+        ],
+        [
+          "CREDIT_CARD",
           100
-        ],
-        [
-          "FIELD_HINT:NAME",
-          48
-        ],
-        [
-          "CREDIT_CARD",
-          38
-        ],
-        [
-          "US_DRIVER_LICENSE",
-          4
-        ]
-      ],
-      "fn_ids": [
-        "hf_005216",
-        "hf_005102",
-        "hf_000221",
-        "hf_004295"
-      ],
-      "fp_ids": [
-        "gh_HR_26780935",
-        "gh_ARTS_28471099",
-        "gh_HEALTHCARE_14667957",
-        "gh_CHEF_29990140",
-        "gh_ENGINEERING_11890896",
-        "gh_HR_18557164",
-        "gh_CONSTRUCTION_22965804",
-        "gh_HEALTHCARE_25451319",
-        "gh_ACCOUNTANT_75286906",
-        "gh_ARTS_34304175"
-      ]
-    },
-    {
-      "backend": "deberta",
-      "total": 400,
-      "tp": 196,
-      "tn": 181,
-      "fp": 19,
-      "fn": 4,
-      "recall": 0.98,
-      "specificity": 0.905,
-      "precision": 0.9116279069767442,
-      "f1": 0.9445783132530121,
-      "local_rate": 0.5375,
-      "elapsed_s": 316.5833752155304,
-      "top_entities": [
-        [
-          "PHONE_NUMBER",
-          267
-        ],
-        [
-          "US_SSN",
-          171
-        ],
-        [
-          "FIELD_HINT:PHONE",
-          146
-        ],
-        [
-          "FIELD_HINT:SSN",
-          97
-        ],
-        [
-          "CREDIT_CARD",
-          70
-        ],
-        [
-          "FIELD_HINT:NAME",
-          48
-        ],
-        [
-          "EMAIL_ADDRESS",
-          39
-        ],
-        [
-          "US_DRIVER_LICENSE",
-          2
-        ]
-      ],
-      "fn_ids": [
-        "hf_005216",
-        "hf_005102",
-        "hf_000221",
-        "hf_004295"
-      ],
-      "fp_ids": [
-        "hf_005054",
-        "hf_004006",
-        "gh_APPAREL_13807808",
-        "hf_004849",
-        "hf_003643",
-        "hf_001362",
-        "hf_007447",
-        "gh_HR_26780935",
-        "gh_ARTS_28471099",
-        "gh_HEALTHCARE_14667957",
-        "hf_000500",
-        "gh_CHEF_29990140",
-        "gh_ENGINEERING_11890896",
-        "gh_HR_18557164",
-        "gh_CONSTRUCTION_22965804",
-        "gh_HEALTHCARE_25451319",
-        "gh_ACCOUNTANT_75286906",
-        "gh_ARTS_34304175",
-        "hf_002454"
-      ]
-    },
-    {
-      "backend": "regex",
-      "total": 400,
-      "tp": 195,
-      "tn": 190,
-      "fp": 10,
-      "fn": 5,
-      "recall": 0.975,
-      "specificity": 0.95,
-      "precision": 0.9512195121951219,
-      "f1": 0.9629629629629629,
-      "local_rate": 0.5125,
-      "elapsed_s": 0.11152410507202148,
-      "top_entities": [
-        [
-          "PHONE_NUMBER",
-          289
-        ],
-        [
-          "US_SSN",
-          200
-        ],
-        [
-          "FIELD_HINT:PHONE",
-          157
-        ],
-        [
-          "FIELD_HINT:SSN",
-          100
-        ],
-        [
-          "CREDIT_CARD",
-          67
-        ],
-        [
-          "FIELD_HINT:NAME",
-          48
-        ]
-      ],
-      "fn_ids": [
-        "hf_005216",
-        "hf_005102",
-        "hf_000221",
-        "hf_004295",
-        "hf_000052"
-      ],
-      "fp_ids": [
-        "gh_HR_26780935",
-        "gh_ARTS_28471099",
-        "gh_HEALTHCARE_14667957",
-        "gh_CHEF_29990140",
-        "gh_ENGINEERING_11890896",
-        "gh_HR_18557164",
-        "gh_CONSTRUCTION_22965804",
-        "gh_HEALTHCARE_25451319",
-        "gh_ACCOUNTANT_75286906",
-        "gh_ARTS_34304175"
-      ]
-    },
-    {
-      "backend": "ensemble",
-      "total": 400,
-      "tp": 196,
-      "tn": 181,
-      "fp": 19,
-      "fn": 4,
-      "recall": 0.98,
-      "specificity": 0.905,
-      "precision": 0.9116279069767442,
-      "f1": 0.9445783132530121,
-      "local_rate": 0.5375,
-      "elapsed_s": 197.13592386245728,
-      "top_entities": [
-        [
-          "PHONE_NUMBER",
-          319
-        ],
-        [
-          "US_SSN",
-          200
-        ],
-        [
-          "FIELD_HINT:PHONE",
-          157
-        ],
-        [
-          "FIELD_HINT:SSN",
-          100
-        ],
-        [
-          "CREDIT_CARD",
-          91
-        ],
-        [
-          "FIELD_HINT:NAME",
-          48
-        ],
-        [
-          "EMAIL_ADDRESS",
-          35
         ],
         [
           "US_DRIVER_LICENSE",
@@ -255,13 +55,116 @@
         "hf_005216",
         "hf_005102",
         "hf_000221",
-        "hf_004295"
+        "hf_004295",
+        "hf_002906",
+        "hf_003115"
+      ],
+      "fp_ids": [
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175",
+        "gh_ENGINEERING_24647794",
+        "gh_ENGINEERING_86828820",
+        "gh_ADVOCATE_37560528",
+        "gh_CONSTRUCTION_16924279",
+        "gh_DIGITAL-MEDIA_14761906",
+        "gh_SALES_21595057",
+        "gh_CHEF_34252537",
+        "gh_CONSTRUCTION_24740005",
+        "gh_ADVOCATE_17021141",
+        "gh_PUBLIC-RELATIONS_21549195",
+        "gh_DESIGNER_13774329",
+        "gh_SALES_36904300",
+        "gh_FITNESS_12791244",
+        "gh_INFORMATION-TECHNOLOGY_24889109",
+        "gh_FINANCE_28973180",
+        "gh_FITNESS_29319314",
+        "gh_BUSINESS-DEVELOPMENT_15423153",
+        "gh_TEACHER_63391085",
+        "gh_CHEF_35468363",
+        "gh_TEACHER_36206485",
+        "gh_ENGINEERING_61579998",
+        "gh_DESIGNER_18979238",
+        "gh_DIGITAL-MEDIA_50219114",
+        "gh_BANKING_28419927",
+        "gh_HEALTHCARE_31926950",
+        "gh_FINANCE_14181049",
+        "gh_TEACHER_69005326",
+        "gh_DESIGNER_22675694"
+      ]
+    },
+    {
+      "backend": "deberta",
+      "total": 1000,
+      "tp": 494,
+      "tn": 437,
+      "fp": 63,
+      "fn": 6,
+      "recall": 0.988,
+      "specificity": 0.874,
+      "precision": 0.8868940754039497,
+      "f1": 0.9347209082308421,
+      "local_rate": 0.557,
+      "elapsed_s": 442.09659695625305,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          678
+        ],
+        [
+          "US_SSN",
+          438
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          379
+        ],
+        [
+          "FIELD_HINT:SSN",
+          246
+        ],
+        [
+          "CREDIT_CARD",
+          187
+        ],
+        [
+          "FIELD_HINT:NAME",
+          128
+        ],
+        [
+          "EMAIL_ADDRESS",
+          87
+        ],
+        [
+          "US_DRIVER_LICENSE",
+          8
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295",
+        "hf_002906",
+        "hf_003115"
       ],
       "fp_ids": [
         "hf_005054",
         "hf_004006",
         "gh_APPAREL_13807808",
         "hf_004849",
+        "hf_003659",
+        "hf_004155",
+        "hf_001872",
+        "hf_005512",
+        "hf_004968",
         "hf_003643",
         "hf_001362",
         "hf_007447",
@@ -276,7 +179,256 @@
         "gh_HEALTHCARE_25451319",
         "gh_ACCOUNTANT_75286906",
         "gh_ARTS_34304175",
-        "hf_002454"
+        "hf_002454",
+        "gh_ENGINEERING_24647794",
+        "gh_ENGINEERING_86828820",
+        "gh_ADVOCATE_37560528",
+        "gh_CONSTRUCTION_16924279",
+        "gh_DIGITAL-MEDIA_14761906",
+        "hf_005357",
+        "gh_SALES_21595057",
+        "hf_002135",
+        "gh_CHEF_34252537",
+        "gh_CONSTRUCTION_24740005",
+        "hf_004470",
+        "gh_ADVOCATE_17021141",
+        "hf_004832",
+        "gh_PUBLIC-RELATIONS_21549195",
+        "gh_DESIGNER_13774329",
+        "hf_004953",
+        "gh_SALES_36904300",
+        "gh_FITNESS_12791244",
+        "hf_005469",
+        "gh_INFORMATION-TECHNOLOGY_24889109",
+        "gh_FINANCE_28973180",
+        "hf_004571",
+        "gh_FITNESS_29319314",
+        "gh_BUSINESS-DEVELOPMENT_15423153",
+        "hf_001080",
+        "gh_TEACHER_63391085",
+        "gh_CHEF_35468363",
+        "gh_TEACHER_36206485",
+        "gh_ENGINEERING_61579998",
+        "gh_DESIGNER_18979238",
+        "gh_DIGITAL-MEDIA_50219114",
+        "gh_BANKING_28419927",
+        "hf_002705",
+        "hf_000661",
+        "gh_HEALTHCARE_31926950",
+        "hf_001852",
+        "gh_FINANCE_14181049",
+        "gh_TEACHER_69005326",
+        "gh_DESIGNER_22675694"
+      ]
+    },
+    {
+      "backend": "regex",
+      "total": 1000,
+      "tp": 493,
+      "tn": 462,
+      "fp": 38,
+      "fn": 7,
+      "recall": 0.986,
+      "specificity": 0.924,
+      "precision": 0.928436911487759,
+      "f1": 0.95635305528613,
+      "local_rate": 0.531,
+      "elapsed_s": 0.2902712821960449,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          727
+        ],
+        [
+          "US_SSN",
+          500
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          405
+        ],
+        [
+          "FIELD_HINT:SSN",
+          250
+        ],
+        [
+          "CREDIT_CARD",
+          167
+        ],
+        [
+          "FIELD_HINT:NAME",
+          128
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295",
+        "hf_000052",
+        "hf_002906",
+        "hf_003115"
+      ],
+      "fp_ids": [
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175",
+        "gh_ENGINEERING_24647794",
+        "gh_ENGINEERING_86828820",
+        "gh_ADVOCATE_37560528",
+        "gh_CONSTRUCTION_16924279",
+        "gh_DIGITAL-MEDIA_14761906",
+        "gh_SALES_21595057",
+        "gh_CHEF_34252537",
+        "gh_CONSTRUCTION_24740005",
+        "gh_ADVOCATE_17021141",
+        "gh_PUBLIC-RELATIONS_21549195",
+        "gh_DESIGNER_13774329",
+        "gh_SALES_36904300",
+        "gh_FITNESS_12791244",
+        "gh_INFORMATION-TECHNOLOGY_24889109",
+        "gh_FINANCE_28973180",
+        "gh_FITNESS_29319314",
+        "gh_BUSINESS-DEVELOPMENT_15423153",
+        "gh_TEACHER_63391085",
+        "gh_CHEF_35468363",
+        "gh_TEACHER_36206485",
+        "gh_ENGINEERING_61579998",
+        "gh_DESIGNER_18979238",
+        "gh_DIGITAL-MEDIA_50219114",
+        "gh_BANKING_28419927",
+        "gh_HEALTHCARE_31926950",
+        "gh_FINANCE_14181049",
+        "gh_TEACHER_69005326",
+        "gh_DESIGNER_22675694"
+      ]
+    },
+    {
+      "backend": "ensemble",
+      "total": 1000,
+      "tp": 494,
+      "tn": 437,
+      "fp": 63,
+      "fn": 6,
+      "recall": 0.988,
+      "specificity": 0.874,
+      "precision": 0.8868940754039497,
+      "f1": 0.9347209082308421,
+      "local_rate": 0.557,
+      "elapsed_s": 497.61001420021057,
+      "top_entities": [
+        [
+          "PHONE_NUMBER",
+          795
+        ],
+        [
+          "US_SSN",
+          500
+        ],
+        [
+          "FIELD_HINT:PHONE",
+          405
+        ],
+        [
+          "FIELD_HINT:SSN",
+          250
+        ],
+        [
+          "CREDIT_CARD",
+          227
+        ],
+        [
+          "FIELD_HINT:NAME",
+          128
+        ],
+        [
+          "EMAIL_ADDRESS",
+          79
+        ],
+        [
+          "US_DRIVER_LICENSE",
+          12
+        ]
+      ],
+      "fn_ids": [
+        "hf_005216",
+        "hf_005102",
+        "hf_000221",
+        "hf_004295",
+        "hf_002906",
+        "hf_003115"
+      ],
+      "fp_ids": [
+        "hf_005054",
+        "hf_004006",
+        "gh_APPAREL_13807808",
+        "hf_004849",
+        "hf_003659",
+        "hf_004155",
+        "hf_001872",
+        "hf_005512",
+        "hf_004968",
+        "hf_003643",
+        "hf_001362",
+        "hf_007447",
+        "gh_HR_26780935",
+        "gh_ARTS_28471099",
+        "gh_HEALTHCARE_14667957",
+        "hf_000500",
+        "gh_CHEF_29990140",
+        "gh_ENGINEERING_11890896",
+        "gh_HR_18557164",
+        "gh_CONSTRUCTION_22965804",
+        "gh_HEALTHCARE_25451319",
+        "gh_ACCOUNTANT_75286906",
+        "gh_ARTS_34304175",
+        "hf_002454",
+        "gh_ENGINEERING_24647794",
+        "gh_ENGINEERING_86828820",
+        "gh_ADVOCATE_37560528",
+        "gh_CONSTRUCTION_16924279",
+        "gh_DIGITAL-MEDIA_14761906",
+        "hf_005357",
+        "gh_SALES_21595057",
+        "hf_002135",
+        "gh_CHEF_34252537",
+        "gh_CONSTRUCTION_24740005",
+        "hf_004470",
+        "gh_ADVOCATE_17021141",
+        "hf_004832",
+        "gh_PUBLIC-RELATIONS_21549195",
+        "gh_DESIGNER_13774329",
+        "hf_004953",
+        "gh_SALES_36904300",
+        "gh_FITNESS_12791244",
+        "hf_005469",
+        "gh_INFORMATION-TECHNOLOGY_24889109",
+        "gh_FINANCE_28973180",
+        "hf_004571",
+        "gh_FITNESS_29319314",
+        "gh_BUSINESS-DEVELOPMENT_15423153",
+        "hf_001080",
+        "gh_TEACHER_63391085",
+        "gh_CHEF_35468363",
+        "gh_TEACHER_36206485",
+        "gh_ENGINEERING_61579998",
+        "gh_DESIGNER_18979238",
+        "gh_DIGITAL-MEDIA_50219114",
+        "gh_BANKING_28419927",
+        "hf_002705",
+        "hf_000661",
+        "gh_HEALTHCARE_31926950",
+        "hf_001852",
+        "gh_FINANCE_14181049",
+        "gh_TEACHER_69005326",
+        "gh_DESIGNER_22675694"
       ]
     }
   ]
