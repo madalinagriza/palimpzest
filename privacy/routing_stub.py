@@ -814,7 +814,6 @@ class PrivacyRouter:
                 query_needs_sensitive=False,
             )
 
-        self.stats.record(decision)
         return decision
 
     def route(self, operator, input_fields: list[str], input_record: Any | None = None) -> str:
@@ -991,6 +990,7 @@ def execute_with_routing(
             else operator.get_input_fields()
         )
         decision = router.inspect(operator, input_fields, input_record=input_record)
+        router.stats.record(decision)
         router.last_decision = decision
 
     destination = decision.destination
