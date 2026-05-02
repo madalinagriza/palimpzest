@@ -113,6 +113,66 @@ OPERATOR_CONFIGS = [
         "sensitive_query": False,
         "op_type": "sem_filter",
     },
+    # Ambiguous — asks about a "contact" but doesn't say what kind
+    {
+        "name": "find_contact",
+        "desc": "Find the best way to contact this applicant.",
+        "depends_on": ["text", "phone", "email"],
+        "sensitive_query": True,   # phone/email are PII the query needs
+        "op_type": "sem_filter",
+    },
+    # Paraphrased — needs identity but never says "name" or "identity"
+    {
+        "name": "attribute_authorship",
+        "desc": "Who wrote this resume? What is their background?",
+        "depends_on": ["text", "name"],
+        "sensitive_query": True,   # keyword method may miss this — good LLM test case
+        "op_type": "sem_map",
+    },
+    # Non-sensitive but reads everything
+    {
+        "name": "assess_seniority",
+        "desc": "Rate the applicant's seniority level based on years of experience.",
+        "depends_on": ["text", "ssn", "phone", "name"],
+        "sensitive_query": False,
+        "op_type": "sem_filter",
+    },
+    {
+    "name": "find_age",          # unique, used in output tables
+    "desc": "Find me applicants above age 30",    # THIS is what intent detection reads
+    "depends_on": ["text", "name"],   # fields scanned for PII — must be from SCHEMA_FIELDS
+    "sensitive_query": True,         # ground truth: does this query actually need the PII?
+    "op_type": "sem_filter",            # "sem_map" or "sem_filter" (cosmetic only)
+    },
+    {
+    "name": "score_relevance",
+    "desc": "Score this resume from 1 to 10 for relevance to a software engineering role.",
+    "depends_on": ["text", "ssn", "phone", "name"],
+    "sensitive_query": False,
+    "op_type": "sem_map",
+    },
+    {
+    "name": "infer_location",
+    "desc": "Is this candidate likely based in the United States?",
+    "depends_on": ["text", "phone", "ssn"],
+    "sensitive_query": True,
+    "op_type": "sem_filter",
+    },
+    {
+    "name": "fraud_check",
+    "desc": "Does anything about this application suggest it may be fraudulent?",
+    "depends_on": ["text", "name", "ssn"],
+    "sensitive_query": True,   # fraud detection likely needs name/SSN to verify
+    "op_type": "sem_filter",
+    },
+    {
+    "name": "summarize_birth_of_career",
+    "desc": "Summarize where and how this person's career began.",
+    "depends_on": ["text", "name"],
+    "sensitive_query": False,  # "birth" appears but means career start, not DOB
+    "op_type": "sem_map",      # "birth" IS a keyword → keyword method routes to local incorrectly
+    }
+
 ]
 
 SCHEMA_FIELDS = ["record_id", "category", "pii_group", "text", "name", "phone", "email", "ssn"]
@@ -121,7 +181,8 @@ SCHEMA_FIELDS = ["record_id", "category", "pii_group", "text", "name", "phone", 
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
-def load_sample(jsonl_path: str, sample_per_group: int) -> list[dict]:
+def load_sample(jsonl_path: str, sample_per_group: int | None) -> list[dict]:
+    """Load records. Pass None to load every record in each group."""
     groups: dict[str, list[dict]] = defaultdict(list)
     with open(jsonl_path, encoding="utf-8") as f:
         for line in f:
@@ -133,7 +194,8 @@ def load_sample(jsonl_path: str, sample_per_group: int) -> list[dict]:
             )
     records = []
     for group in ["none", "low", "natural", "high"]:
-        records.extend(groups[group][:sample_per_group])
+        subset = groups[group] if sample_per_group is None else groups[group][:sample_per_group]
+        records.extend(subset)
     return records
 
 
@@ -233,21 +295,42 @@ def run(
     records: list[dict],
     backend: str,
     score_threshold: float,
+    intent_method: str = "keyword",
 ) -> tuple[list[OperatorMetrics], list[OperatorResult]]:
 
-    config = ModelConfig(detector_backend=backend, score_threshold=score_threshold)
+    config = ModelConfig(
+        detector_backend=backend,
+        score_threshold=score_threshold,
+        intent_method=intent_method,
+    )
     router = PrivacyRouter(config)
 
     all_metrics: list[OperatorMetrics] = []
     all_results: list[OperatorResult] = []
 
-    for cfg in OPERATOR_CONFIGS:
+    total_ops = len(OPERATOR_CONFIGS)
+    for op_idx, cfg in enumerate(OPERATOR_CONFIGS, 1):
         op = _FakeOperator(cfg)
         sensitive_query = cfg["sensitive_query"]
         metrics = OperatorMetrics(op_name=cfg["name"], sensitive_query=sensitive_query)
+        qtype = "sensitive" if sensitive_query else "non-sensitive"
+        print(
+            f"  [{op_idx}/{total_ops}] {cfg['name']}  ({qtype})"
+            f"  — {len(records)} records  [intent={intent_method}]"
+        )
 
         t0 = time.time()
-        for rec in records:
+        _progress_step = max(1, len(records) // 20)  # print ~20 updates per operator
+        for rec_idx, rec in enumerate(records, 1):
+            if rec_idx % _progress_step == 0 or rec_idx == len(records):
+                elapsed = time.time() - t0
+                pct = 100.0 * rec_idx / len(records)
+                eta = (elapsed / rec_idx) * (len(records) - rec_idx)
+                print(
+                    f"\r    {rec_idx:>6}/{len(records)}  ({pct:4.1f}%)"
+                    f"  {elapsed:5.1f}s elapsed  ~{eta:4.0f}s left   ",
+                    end="", flush=True,
+                )
             proxy = _RecordProxy(rec)
             pii_group = rec["pii_group"]
             has_pii = pii_group in ("natural", "high")
@@ -309,6 +392,7 @@ def run(
             ))
 
         metrics_elapsed = time.time() - t0
+        print()  # newline after progress bar
         all_metrics.append(metrics)
 
     return all_metrics, all_results
@@ -317,9 +401,14 @@ def run(
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
-def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int, backend: str) -> None:
-    total_records = sample_per_group * 4
-    pii_records = sample_per_group * 2   # natural + high
+def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int | None, backend: str) -> None:
+    # Derive actual counts from the first operator's by_group data
+    first = all_metrics[0]
+    total_records = first.total
+    pii_records = (
+        first.by_group.get("natural", {}).get("total", 0) +
+        first.by_group.get("high",    {}).get("total", 0)
+    )
 
     print(f"\n{'='*80}")
     print(f"Q3 QUERY-INTENT ROUTING BENCHMARK")
@@ -417,12 +506,84 @@ def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int, back
 
 
 # ---------------------------------------------------------------------------
+# Comparison report (--intent both)
+# ---------------------------------------------------------------------------
+def print_comparison(kw_metrics: list[OperatorMetrics], llm_metrics: list[OperatorMetrics]) -> None:
+    print(f"\n{'='*90}")
+    print("INTENT METHOD COMPARISON — keyword vs. LLM")
+    print(f"{'='*90}")
+    print(
+        f"{'Operator':<20} {'Query':>12}  "
+        f"{'KW local':>9} {'KW anon':>8} {'KW cloud':>9}  "
+        f"{'LLM local':>9} {'LLM anon':>9} {'LLM cloud':>9}  "
+        f"{'Disagree':>9}"
+    )
+    print("-" * 90)
+    total_disagree = 0
+    for kw, llm in zip(kw_metrics, llm_metrics):
+        qtype = "sensitive" if kw.sensitive_query else "non-sensitive"
+        # Count records where the two methods chose different destinations
+        # We don't have per-record data here, so approximate via distribution diff
+        disagree = abs(kw.n_local - llm.n_local)
+        total_disagree += disagree
+        print(
+            f"{kw.op_name:<20} {qtype:>12}  "
+            f"{kw.n_local:>9} {kw.n_cloud_anon:>8} {kw.n_cloud:>9}  "
+            f"{llm.n_local:>9} {llm.n_cloud_anon:>9} {llm.n_cloud:>9}  "
+            f"{disagree:>9}"
+        )
+    print(f"\n  Total routing disagreements (|KW_local − LLM_local| per operator): {total_disagree}")
+
+    # Privacy regression check for sensitive operators
+    print(f"\n  Privacy check on sensitive operators:")
+    for kw, llm in zip(kw_metrics, llm_metrics):
+        if not kw.sensitive_query:
+            continue
+        kw_risk  = kw.n_cloud_anon + kw.n_cloud
+        llm_risk = llm.n_cloud_anon + llm.n_cloud
+        kw_str  = f"{'OK' if kw_risk  == 0 else f'LEAK {kw_risk}'}"
+        llm_str = f"{'OK' if llm_risk == 0 else f'LEAK {llm_risk}'}"
+        print(f"    {kw.op_name:<22} keyword={kw_str:<12} llm={llm_str}")
+    print(f"\n  Quality savings comparison (calls rescued from local → cloud_anonymized):")
+    for kw, llm in zip(kw_metrics, llm_metrics):
+        if kw.sensitive_query:
+            continue
+        print(
+            f"    {kw.op_name:<22} keyword={kw.quality_savings:<6}  "
+            f"llm={llm.quality_savings:<6}"
+        )
+    print(f"{'='*90}\n")
+
+
+def _serialize_metrics(metrics: list[OperatorMetrics]) -> list[dict]:
+    return [
+        {
+            "op_name": m.op_name,
+            "sensitive_query": m.sensitive_query,
+            "total": m.total,
+            "correct": m.correct,
+            "accuracy": m.accuracy,
+            "n_local": m.n_local,
+            "n_cloud_anonymized": m.n_cloud_anon,
+            "n_cloud": m.n_cloud,
+            "two_way_local": m.two_way_local,
+            "quality_savings": m.quality_savings,
+            "quality_savings_pct": m.quality_savings_pct,
+            "by_group": m.by_group,
+        }
+        for m in metrics
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="Q3 query-intent routing benchmark")
     parser.add_argument("--sample", type=int, default=25,
-                        help="Records per PII group (default 25, total = 4×)")
+                        help="Records per PII group (default 25, total = 4×). Ignored if --all is set.")
+    parser.add_argument("--all", action="store_true",
+                        help="Use every record in each group (overrides --sample)")
     parser.add_argument("--out", type=str, default=None,
                         help="Path to write JSON results (optional)")
     parser.add_argument("--score-threshold", type=float, default=0.6,
@@ -430,7 +591,11 @@ def main():
     parser.add_argument("--backend", default="presidio",
                         choices=["presidio", "regex", "ensemble", "deberta"],
                         help="PII detection backend (default: presidio)")
+    parser.add_argument("--intent", default="keyword",
+                        choices=["keyword", "llm", "both"],
+                        help="Intent detection method: keyword matching, LLM (Ollama), or both (default: keyword)")
     args = parser.parse_args()
+    sample_per_group: int | None = None if args.all else args.sample
 
     data_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "data", "resumes_with_pii.jsonl")
@@ -439,51 +604,47 @@ def main():
         print(f"ERROR: {data_path} not found.")
         sys.exit(1)
 
-    print(f"Loading {args.sample} records per PII group ...")
-    records = load_sample(data_path, args.sample)
+    load_desc = "all" if sample_per_group is None else str(sample_per_group)
+    print(f"Loading {load_desc} records per PII group ...")
+    records = load_sample(data_path, sample_per_group)
     print(f"Loaded {len(records)} records.\n")
 
-    print(f"Running Q3 with backend={args.backend} ...")
-    t0 = time.time()
-    all_metrics, all_results = run(records, args.backend, args.score_threshold)
-    elapsed = time.time() - t0
+    intent_methods = ["keyword", "llm"] if args.intent == "both" else [args.intent]
+    results_by_method: dict[str, list[OperatorMetrics]] = {}
 
-    for m in all_metrics:
-        qtype = "sensitive" if m.sensitive_query else "non-sensitive"
-        print(
-            f"  [{m.op_name}] ({qtype})  "
-            f"accuracy={m.accuracy*100:.1f}%  "
-            f"local={m.n_local}  anon={m.n_cloud_anon}  cloud={m.n_cloud}  "
-            f"savings={m.quality_savings}"
-        )
-    print(f"  total time: {elapsed:.2f}s\n")
+    for method in intent_methods:
+        print(f"\n{'='*60}")
+        print(f"Running Q3  backend={args.backend}  intent={method}")
+        print(f"{'='*60}")
+        t0 = time.time()
+        all_metrics, all_results = run(records, args.backend, args.score_threshold, method)
+        elapsed = time.time() - t0
+        results_by_method[method] = all_metrics
+        print(f"  Completed in {elapsed:.1f}s")
+        print_report(all_metrics, sample_per_group, f"{args.backend}/{method}")
 
-    print_report(all_metrics, args.sample, args.backend)
+    if args.intent == "both":
+        print_comparison(results_by_method["keyword"], results_by_method["llm"])
 
     if args.out:
         out_path = os.path.abspath(args.out)
-        payload = {
-            "sample_per_group": args.sample,
-            "score_threshold": args.score_threshold,
-            "backend": args.backend,
-            "operators": [
-                {
-                    "op_name": m.op_name,
-                    "sensitive_query": m.sensitive_query,
-                    "total": m.total,
-                    "correct": m.correct,
-                    "accuracy": m.accuracy,
-                    "n_local": m.n_local,
-                    "n_cloud_anonymized": m.n_cloud_anon,
-                    "n_cloud": m.n_cloud,
-                    "two_way_local": m.two_way_local,
-                    "quality_savings": m.quality_savings,
-                    "quality_savings_pct": m.quality_savings_pct,
-                    "by_group": m.by_group,
-                }
-                for m in all_metrics
-            ],
-        }
+        if args.intent == "both":
+            payload = {
+                "sample_per_group": sample_per_group,
+                "score_threshold": args.score_threshold,
+                "backend": args.backend,
+                "intent": "both",
+                "keyword": {"operators": _serialize_metrics(results_by_method["keyword"])},
+                "llm":     {"operators": _serialize_metrics(results_by_method["llm"])},
+            }
+        else:
+            payload = {
+                "sample_per_group": sample_per_group,
+                "score_threshold": args.score_threshold,
+                "backend": args.backend,
+                "intent": args.intent,
+                "operators": _serialize_metrics(results_by_method[args.intent]),
+            }
         os.makedirs(os.path.dirname(out_path) if os.path.dirname(out_path) else ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

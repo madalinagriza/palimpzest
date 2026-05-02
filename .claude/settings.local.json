@@ -6,7 +6,8 @@
       "Bash(python -c \"import json; d=json.load\\(open\\('data/gpt4o_baseline_results.json'\\)\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
       "Bash(python -c \"import json; d=json.load\\(open\\('data/gpt4o_baseline_results.json'\\)\\); print\\('sample_per_group:', d.get\\('sample_per_group'\\), 'total_records:', d.get\\('total_records'\\), 'has sem_filter:', 'sem_filter' in d\\)\")",
       "Bash(python -c \"import presidio_analyzer; print\\('presidio ok'\\)\")",
-      "Bash(.venv/Scripts/python privacy/benchmark_sensitivity.py --sample 20)"
+      "Bash(.venv/Scripts/python privacy/benchmark_sensitivity.py --sample 20)",
+      "Bash(.venv/Scripts/python demos/test_llm_intent.py --mode both)"
     ]
   }
 }

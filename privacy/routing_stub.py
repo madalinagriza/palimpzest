@@ -132,6 +132,8 @@ class ModelConfig:
     detector_backend: str = "presidio"
     deberta_model: str = "iiiorg/piiranha-v1-detect-personal-information"
     deberta_device: int = -1
+    intent_method: str = "keyword"  # "keyword" | "llm"
+    intent_llm_model: str = "llama3.2"  # Ollama model used when intent_method="llm"
     sensitive_entities: frozenset[str] = frozenset({
         "US_SSN",
         "EMAIL_ADDRESS",
@@ -355,6 +357,10 @@ class PrivacyRouter:
         self.config = config or ModelConfig()
         self.last_decision: RouteDecision | None = None
         self.stats = RoutingStats()
+        # Cache LLM intent decisions keyed by (query_text, entity_type) so Ollama
+        # is called at most once per unique (operator description, entity type) pair
+        # across the entire benchmark run.
+        self._llm_intent_cache: dict[tuple[str, str], bool] = {}
 
     @staticmethod
     def _safe_preview(value: str, limit: int = 60) -> str:
@@ -600,6 +606,117 @@ class PrivacyRouter:
             # against prompts like "email discusses scheduling".
         return False
 
+    # Two prompt strategies for LLM intent detection, selectable via
+    # ModelConfig.intent_llm_prompt ("per_entity" or "general").
+    #
+    # per_entity — asks about a specific detected PII type using a counterfactual
+    #   frame: "if this data were redacted, would the answer degrade?"
+    #   More precise, but requires one Ollama call per (query, entity_type) pair.
+    #
+    # general — asks a single question: "does this query need any personal data?"
+    #   One call per query (not per entity), simpler for small models, but less
+    #   granular — cannot distinguish "needs SSN" from "needs any PII at all".
+
+    _ENTITY_LABELS = {
+        "US_SSN":            "Social Security Number (SSN)",
+        "EMAIL_ADDRESS":     "email address",
+        "PHONE_NUMBER":      "phone number",
+        "CREDIT_CARD":       "credit card number",
+        "US_DRIVER_LICENSE": "driver's license number",
+        "IP_ADDRESS":        "IP address",
+        "US_BANK_NUMBER":    "bank account number",
+        "US_PASSPORT":       "passport number",
+    }
+
+    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> bool:
+        """
+        Ask Ollama whether a query needs a specific PII type (per_entity mode).
+        Uses a counterfactual frame: if this data were redacted, would the answer degrade?
+        Cached by caller — at most one Ollama call per (query_text, entity_type) pair.
+        Falls back to keyword matching if Ollama is unreachable.
+        """
+        label = self._ENTITY_LABELS.get(entity_type, entity_type)
+        system = (
+            "You are a data privacy classifier. "
+            "You will be given a database query and one type of sensitive personal data. "
+            "Your job: decide if that data is necessary for the query to work correctly. "
+            "Answer with exactly one word — 'yes' or 'no' — nothing else."
+        )
+        prompt = (
+            f'Query: "{query_text}"\n'
+            f"Personal data type: {label}\n\n"
+            f"If {label} were completely redacted from the input, "
+            f"would this query produce a wrong or incomplete answer?\n"
+            f"yes or no:"
+        )
+        return self._ollama_yes_no(system, prompt)
+
+    def _ask_llm_needs_any_pii(self, query_text: str) -> bool:
+        """
+        Ask Ollama whether a query needs *any* personal data (general mode).
+        One call per unique query text, regardless of how many entity types were detected.
+        Falls back to keyword matching if Ollama is unreachable.
+        """
+        system = (
+            "You are a data privacy classifier. "
+            "You will be given a database query. "
+            "Your job: decide if the query requires access to any personally identifiable "
+            "information (PII) — such as names, phone numbers, email addresses, SSNs, "
+            "dates of birth, or other personal data — to produce a correct answer. "
+            "Answer with exactly one word — 'yes' or 'no' — nothing else."
+        )
+        prompt = (
+            f'Query: "{query_text}"\n\n'
+            f"Does answering this query correctly require access to any personal data?\n"
+            f"yes or no:"
+        )
+        return self._ollama_yes_no(system, prompt)
+
+    def _ollama_yes_no(self, system: str, prompt: str) -> bool:
+        """Send a yes/no prompt to Ollama and parse the response."""
+        import urllib.request as _urlreq
+        import json as _json
+
+        try:
+            payload = _json.dumps({
+                "model": self.config.intent_llm_model,
+                "system": system,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0, "num_predict": 16},
+            }).encode()
+            req = _urlreq.Request(
+                "http://localhost:11434/api/generate",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with _urlreq.urlopen(req, timeout=30) as resp:
+                result = _json.loads(resp.read())
+                answer = result.get("response", "").strip().lower()
+                first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
+                return first_word == "yes"
+        except Exception:
+            # Ollama unreachable — conservative fallback: assume PII is needed.
+            return True
+
+    def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> bool:
+        """
+        LLM-based intent detection. Asks Ollama whether the query needs each
+        detected entity type. Answers are cached so Ollama is called once per
+        unique (query_text, entity_type) pair, not once per record.
+        """
+        if not query_text.strip():
+            return True
+        for d in detections:
+            cache_key = (query_text, d.entity_type)
+            if cache_key not in self._llm_intent_cache:
+                self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
+                    query_text, d.entity_type
+                )
+            if self._llm_intent_cache[cache_key]:
+                return True
+        return False
+
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
         """
         Inspect the fields an operator will read and build a routing decision.
@@ -658,7 +775,10 @@ class PrivacyRouter:
         query_text = self._extract_query_text(operator)
 
         if detections:
-            needs_sensitive = self._query_needs_sensitive_data(query_text, detections)
+            if self.config.intent_method == "llm":
+                needs_sensitive = self._query_needs_sensitive_data_llm(query_text, detections)
+            else:
+                needs_sensitive = self._query_needs_sensitive_data(query_text, detections)
             if needs_sensitive:
                 decision = RouteDecision(
                     destination="local",
