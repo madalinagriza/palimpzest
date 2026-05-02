@@ -37,7 +37,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -45,7 +45,7 @@ load_dotenv()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "privacy"))
 
-from routing_stub import PrivacyRouter, RoutingGranularity, ModelConfig
+from routing_stub import PrivacyRouter, ModelConfig
 
 ALL_BACKENDS = ["presidio", "deberta", "regex", "ensemble"]
 
@@ -161,7 +161,16 @@ def run_backend(
 
     t0 = time.time()
 
-    for rec in records:
+    for rec_idx, rec in enumerate(records, 1):
+        if rec_idx % 100 == 0 or rec_idx == len(records):
+            elapsed = time.time() - t0
+            pct = 100.0 * rec_idx / len(records)
+            eta = (elapsed / rec_idx) * (len(records) - rec_idx)
+            print(
+                f"    {rec_idx:>6}/{len(records)}  ({pct:4.1f}%)"
+                f"  {elapsed:5.1f}s elapsed  ~{eta:4.0f}s left",
+                flush=True,
+            )
         proxy = _RecordProxy(rec)
         pii_group = rec["pii_group"]
         ground_truth = "cloud" if pii_group in ("none", "low") else "local"
