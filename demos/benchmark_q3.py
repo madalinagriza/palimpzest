@@ -276,6 +276,7 @@ class OperatorMetrics:
     llm_invalid: int = 0
     llm_error: int = 0
     llm_missing_query: int = 0
+    llm_keyword_fallback: int = 0
     # per pii_group breakdown
     by_group: dict = field(default_factory=dict)
 
@@ -314,12 +315,14 @@ def run(
     backend: str,
     score_threshold: float,
     intent_method: str = "keyword",
+    intent_llm_model: str = "llama3.2",
 ) -> tuple[list[OperatorMetrics], list[OperatorResult]]:
 
     config = ModelConfig(
         detector_backend=backend,
         score_threshold=score_threshold,
         intent_method=intent_method,
+        intent_llm_model=intent_llm_model,
     )
     router = PrivacyRouter(config)
 
@@ -402,6 +405,8 @@ def run(
                 metrics.llm_error += 1
             elif decision.llm_intent_status == "missing_query":
                 metrics.llm_missing_query += 1
+            elif decision.llm_intent_status == "keyword_fallback":
+                metrics.llm_keyword_fallback += 1
 
             all_results.append(OperatorResult(
                 op_name=cfg["name"],
@@ -467,7 +472,7 @@ def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int | Non
 
     # ── Quality savings summary ───────────────────────────────────────────────
     if any(
-        m.llm_yes or m.llm_no or m.llm_invalid or m.llm_error or m.llm_missing_query
+        m.llm_yes or m.llm_no or m.llm_invalid or m.llm_error or m.llm_missing_query or m.llm_keyword_fallback
         for m in all_metrics
     ):
         print(f"{'='*80}")
@@ -475,18 +480,19 @@ def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int | Non
         print(f"{'='*80}")
         print(
             f"{'Operator':<20} {'yes':>8} {'no':>8} {'invalid':>10} "
-            f"{'error':>8} {'missing':>8}"
+            f"{'error':>8} {'missing':>8} {'kw_fallback':>12}"
         )
         print("-" * 80)
         for m in all_metrics:
             print(
                 f"{m.op_name:<20} "
                 f"{m.llm_yes:>8} {m.llm_no:>8} {m.llm_invalid:>10} "
-                f"{m.llm_error:>8} {m.llm_missing_query:>8}"
+                f"{m.llm_error:>8} {m.llm_missing_query:>8} {m.llm_keyword_fallback:>12}"
             )
         print(
-            "\n  invalid = Ollama returned something whose first word was neither yes nor no; "
+            "\n  invalid      = Ollama returned something whose first word was neither yes nor no; "
             "the router treats it conservatively as needs-PII/local.\n"
+            "  kw_fallback  = all detections were FIELD_HINT-only; LLM skipped, keyword used instead.\n"
         )
 
     sensitive_ops   = [m for m in all_metrics if m.sensitive_query]
@@ -635,6 +641,7 @@ def _serialize_metrics(metrics: list[OperatorMetrics]) -> list[dict]:
                 "invalid": m.llm_invalid,
                 "error": m.llm_error,
                 "missing_query": m.llm_missing_query,
+                "keyword_fallback": m.llm_keyword_fallback,
             },
             "quality_savings": m.quality_savings,
             "quality_savings_pct": m.quality_savings_pct,
@@ -664,6 +671,8 @@ def main():
     parser.add_argument("--intent", default="keyword",
                         choices=["keyword", "llm", "both"],
                         help="Intent detection method: keyword matching, LLM (Ollama), or both (default: keyword)")
+    parser.add_argument("--intent-llm-model", default="llama3.2",
+                        help="Ollama model for LLM intent detection (default: llama3.2)")
     args = parser.parse_args()
     sample_per_group: int | None = None if args.all else args.sample
 
@@ -687,7 +696,7 @@ def main():
         print(f"Running Q3  backend={args.backend}  intent={method}")
         print(f"{'='*60}")
         t0 = time.time()
-        all_metrics, all_results = run(records, args.backend, args.score_threshold, method)
+        all_metrics, all_results = run(records, args.backend, args.score_threshold, method, args.intent_llm_model)
         elapsed = time.time() - t0
         results_by_method[method] = all_metrics
         print(f"  Completed in {elapsed:.1f}s")

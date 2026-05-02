@@ -358,10 +358,9 @@ class PrivacyRouter:
         self.config = config or ModelConfig()
         self.last_decision: RouteDecision | None = None
         self.stats = RoutingStats()
-        # Cache LLM intent decisions keyed by (query_text, entity_type) so Ollama
-        # is called at most once per unique (operator description, entity type) pair
-        # across the entire benchmark run.
-        self._llm_intent_cache: dict[tuple[str, str], tuple[bool, str]] = {}
+        # Cache LLM intent decisions keyed by (query_text, entity_type, detected_value)
+        # so Ollama is called at most once per unique (query, entity, value) triple.
+        self._llm_intent_cache: dict[tuple[str, str, str], tuple[bool, str]] = {}
 
     @staticmethod
     def _safe_preview(value: str, limit: int = 60) -> str:
@@ -559,7 +558,9 @@ class PrivacyRouter:
     def _extract_query_text(self, operator) -> str:
         chunks: list[str] = []
 
-        filt = getattr(operator, "filter", None)
+        # filter_obj holds the actual filter object (has .get_filter_str()).
+        # operator.filter is a bound method — skip it.
+        filt = getattr(operator, "filter_obj", None)
         if filt is not None:
             try:
                 chunks.append(filt.get_filter_str())
@@ -629,24 +630,24 @@ class PrivacyRouter:
         "US_PASSPORT":       "passport number",
     }
 
-    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> tuple[bool, str]:
+    def _ask_llm_needs_entity(self, query_text: str, entity_type: str, detected_value: str = "") -> tuple[bool, str]:
         """
-        Ask Ollama whether a query needs a specific PII type (per_entity mode).
-        Uses a counterfactual frame: if this data were redacted, would the answer degrade?
-        Cached by caller — at most one Ollama call per (query_text, entity_type) pair.
-        Falls back to keyword matching if Ollama is unreachable.
+        Ask the model whether this query needs a specific detected value.
+        Counterfactual frame: if this exact value were redacted, would the answer degrade?
+        Falls back to keyword matching if the endpoint is unreachable.
         """
         label = self._ENTITY_LABELS.get(entity_type, entity_type)
+        value_clause = f' (detected value: "{detected_value}")' if detected_value else ""
         system = (
             "You are a data privacy classifier. "
-            "You will be given a database query and one type of sensitive personal data. "
+            "You will be given a database query and a specific piece of sensitive personal data. "
             "Your job: decide if that data is necessary for the query to work correctly. "
             "Answer with exactly one word — 'yes' or 'no' — nothing else."
         )
         prompt = (
             f'Query: "{query_text}"\n'
-            f"Personal data type: {label}\n\n"
-            f"If {label} were completely redacted from the input, "
+            f"Personal data type: {label}{value_clause}\n\n"
+            f"If this {label} were completely redacted from the input, "
             f"would this query produce a wrong or incomplete answer?\n"
             f"yes or no:"
         )
@@ -683,22 +684,27 @@ class PrivacyRouter:
         import urllib.request as _urlreq
         import json as _json
 
+        base = self.config.local_api_base.rstrip("/")
+        url = f"{base}/chat/completions"
         try:
             payload = _json.dumps({
                 "model": self.config.intent_llm_model,
-                "system": system,
-                "prompt": prompt,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": prompt},
+                ],
+                "temperature": 0,
+                "max_tokens": 16,
                 "stream": False,
-                "options": {"temperature": 0, "num_predict": 16},
             }).encode()
             req = _urlreq.Request(
-                "http://localhost:11434/api/generate",
+                url,
                 data=payload,
                 headers={"Content-Type": "application/json"},
             )
             with _urlreq.urlopen(req, timeout=30) as resp:
                 result = _json.loads(resp.read())
-                answer = result.get("response", "").strip().lower()
+                answer = result["choices"][0]["message"]["content"].strip().lower()
                 first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
                 if first_word == "yes":
                     return True, "yes"
@@ -711,24 +717,32 @@ class PrivacyRouter:
 
     def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> tuple[bool, str]:
         """
-        LLM-based intent detection. Asks Ollama whether the query needs each
-        detected entity type. Answers are cached so Ollama is called once per
-        unique (query_text, entity_type) pair, not once per record.
+        LLM-based intent detection. Asks the model whether the query needs each
+        detected value. Cache key includes the detected value so each unique
+        (query, entity_type, value) gets its own LLM judgment.
         """
         if not query_text.strip():
             return True, "missing_query"
         final_status = "no"
+        non_hint_checked = False
         for d in detections:
-            cache_key = (query_text, d.entity_type)
+            if d.entity_type.startswith("FIELD_HINT:"):
+                continue
+            non_hint_checked = True
+            cache_key = (query_text, d.entity_type, d.preview or "")
             if cache_key not in self._llm_intent_cache:
                 self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
-                    query_text, d.entity_type
+                    query_text, d.entity_type, detected_value=d.preview or ""
                 )
             needs_sensitive, status = self._llm_intent_cache[cache_key]
             if status in {"invalid", "error", "missing_query"}:
                 final_status = status
             if needs_sensitive:
                 return True, status
+        if not non_hint_checked:
+            # All detections were FIELD_HINT-only; LLM was never consulted.
+            kw_needs = self._query_needs_sensitive_data(query_text, detections)
+            return kw_needs, ("keyword_fallback" if kw_needs else "no")
         return False, final_status
 
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
@@ -827,7 +841,6 @@ class PrivacyRouter:
                 llm_intent_status=None,
             )
 
-        self.stats.record(decision)
         return decision
 
     def route(self, operator, input_fields: list[str], input_record: Any | None = None) -> str:
@@ -1005,6 +1018,7 @@ def execute_with_routing(
             else operator.get_input_fields()
         )
         decision = router.inspect(operator, input_fields, input_record=input_record)
+        router.stats.record(decision)
         router.last_decision = decision
 
     destination = decision.destination

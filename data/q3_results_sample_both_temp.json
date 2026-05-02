@@ -1,0 +1,1358 @@
+{
+  "sample_per_group": 5,
+  "score_threshold": 0.6,
+  "backend": "presidio",
+  "intent": "both",
+  "keyword": {
+    "operators": [
+      {
+        "op_name": "extract_ssn",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "extract_contact",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "extract_identity",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 10,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "summarize_skills",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "classify_industry",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "rate_education",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "find_contact",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 0,
+        "n_cloud_anonymized": 8,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 8,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 3,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "attribute_authorship",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 10,
+        "accuracy": 0.5,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 10,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "assess_seniority",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "find_age",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 10,
+        "accuracy": 0.5,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 10,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "score_relevance",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "infer_location",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 0,
+        "n_cloud_anonymized": 8,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 8,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 3,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "fraud_check",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 10,
+        "accuracy": 0.5,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 10,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "summarize_birth_of_career",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 0,
+        "n_cloud_anonymized": 10,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 0,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 10,
+        "quality_savings_pct": 100.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 0,
+            "cloud_anonymized": 5,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      }
+    ]
+  },
+  "llm": {
+    "operators": [
+      {
+        "op_name": "extract_ssn",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "extract_contact",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "extract_identity",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 10,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 2
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "summarize_skills",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "classify_industry",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "rate_education",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "find_contact",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "attribute_authorship",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 18,
+        "accuracy": 0.9,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 2,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "assess_seniority",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "find_age",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 18,
+        "accuracy": 0.9,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 2,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "score_relevance",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "infer_location",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 20,
+        "accuracy": 1.0,
+        "n_local": 8,
+        "n_cloud_anonymized": 0,
+        "n_cloud": 12,
+        "two_way_local": 8,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 0,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 0,
+            "cloud": 2,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "fraud_check",
+        "sensitive_query": true,
+        "total": 20,
+        "correct": 18,
+        "accuracy": 0.9,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 0,
+        "quality_savings_pct": 0.0,
+        "privacy_violations": 2,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      },
+      {
+        "op_name": "summarize_birth_of_career",
+        "sensitive_query": false,
+        "total": 20,
+        "correct": 12,
+        "accuracy": 0.6,
+        "n_local": 8,
+        "n_cloud_anonymized": 2,
+        "n_cloud": 10,
+        "two_way_local": 10,
+        "llm_response_buckets": {
+          "yes": 0,
+          "no": 2,
+          "invalid": 0,
+          "error": 8,
+          "missing_query": 0,
+          "keyword_fallback": 0
+        },
+        "quality_savings": 2,
+        "quality_savings_pct": 20.0,
+        "privacy_violations": 0,
+        "by_group": {
+          "none": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "low": {
+            "local": 0,
+            "cloud_anonymized": 0,
+            "cloud": 5,
+            "total": 5
+          },
+          "natural": {
+            "local": 3,
+            "cloud_anonymized": 2,
+            "cloud": 0,
+            "total": 5
+          },
+          "high": {
+            "local": 5,
+            "cloud_anonymized": 0,
+            "cloud": 0,
+            "total": 5
+          }
+        }
+      }
+    ]
+  }
+}
