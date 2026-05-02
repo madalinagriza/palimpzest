@@ -1,188 +1,179 @@
-# Q3 Results Analysis — Intent-Aware Routing
-## Full dataset (14,566 records) · Presidio backend · both intent methods
+# Q3 Sample Results Analysis: Intent-Aware Routing
 
----
+## Run Summary
 
-## What was tested
+This report updates the older Q3 analysis using the current sampled run in `data/q3_results_sample_both.json`.
 
-14 operators across two query categories, each applied to all 14,566 records:
+Run configuration:
 
-- **8 sensitive operators** — queries that need the PII field (ground truth: PII records → `local`)
-- **6 non-sensitive operators** — queries that do not need the PII field (ground truth: PII records → `cloud_anonymized`)
+- Records: 400 total, sampled as 100 each from `none`, `low`, `natural`, and `high`
+- Operators: 14
+- Backend: `presidio`
+- Score threshold: 0.6
+- Intent methods: `keyword` and `llm`
+- LLM: Ollama `llama3.2`, using the current per-entity yes/no intent path
 
-Two intent-detection methods were compared:
-- **Keyword** — fixed vocabulary scan of the operator description
-- **LLM** — `llama3.2` (3B, via Ollama) asked per (query, entity-type) pair whether the query needs that data; answers cached across records
+Overall results:
 
----
+| Method | Calls | Correct | Accuracy | Local | Cloud anonymized | Cloud | Two-way local baseline |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| keyword | 5,600 | 4,626 | 82.6% | 564 | 2,208 | 2,828 | 2,772 |
+| LLM | 5,600 | 4,378 | 78.2% | 316 | 2,456 | 2,828 | 2,772 |
 
-## Summary table
+Thesis: this sample supports keyword as the safer default and the current LLM path as an experimental supplement, not a replacement.
 
-| Operator | Query type | Sensitive? | Keyword acc. | LLM acc. | Winner |
-|---|---|---|---|---|---|
-| `extract_ssn` | explicit | ✓ | **100%** | 29% | Keyword |
-| `extract_contact` | explicit | ✓ | **100%** | 25% | Keyword |
-| `extract_identity` | explicit | ✓ | **100%** | 30% | Keyword |
-| `find_contact` | paraphrased | ✓ | 25% | 25% | Neither |
-| `attribute_authorship` | paraphrased | ✓ | 17% | 32% | LLM (partial) |
-| `find_age` | implicit | ✓ | 17% | 17% | Neither |
-| `infer_location` | implicit | ✓ | 25% | 25% | Neither |
-| `fraud_check` | implicit | ✓ | 17% | 17% | Neither |
-| `summarize_skills` | — | ✗ | **100%** | **100%** | Tie |
-| `classify_industry` | — | ✗ | **100%** | 84% | Keyword |
-| `rate_education` | — | ✗ | **100%** | 84% | Keyword |
-| `assess_seniority` | — | ✗ | **100%** | **100%** | Tie |
-| `score_relevance` | — | ✗ | **100%** | **100%** | Tie |
-| `birth_of_career` | — | ✗ | **100%** | **100%** | Tie |
+The sampled result is directionally different from the earlier full-run analysis in one useful way: LLM no longer over-routes the non-sensitive operators to `local`. On this sample, all six non-sensitive operators are 100% correct for both methods.
 
-Accuracy = % of routing decisions matching ground truth across all 14,566 records.  
-Note: for non-sensitive operators, accuracy counts `cloud_anonymized` as correct (not `local`).
+## How To Read Accuracy
 
----
+The benchmark's `Accuracy` column measures whether the router matched the three-way ground truth **after PII detection**:
 
-## Finding 1 — Keyword method is exact-match only
+- no detection -> expected `cloud`
+- detection + sensitive query -> expected `local`
+- detection + non-sensitive query -> expected `cloud_anonymized`
 
-Keyword correctly handles all three **explicitly labelled** sensitive operators
-(`extract_ssn`, `extract_contact`, `extract_identity`): their descriptions
-contain terms like `"Social Security Number"`, `"phone number"`, `"full name"` that
-appear directly in `_SENSITIVE_QUERY_KEYWORDS`.
+This means an operator can have 100% routing accuracy while still having records from the dataset's `natural` or `high` PII groups go to `cloud`, if Presidio did not detect PII in those records. The privacy-check section in the console output is closer to an end-to-end detector-plus-router view.
 
-It completely fails on the five **paraphrased or implicit** sensitive operators:
+Example: `extract_ssn` under keyword has 100% routing accuracy, but 23 of 200 `natural/high` records went to `cloud` because no PII was detected in those sampled natural records.
 
-| Operator | Description | Why keyword misses |
-|---|---|---|
-| `find_contact` | "Find the best way to contact this applicant." | "contact" is not a keyword; neither is "reach out" |
-| `attribute_authorship` | "Who wrote this resume? What is their background?" | "who" implies name — no keyword fires |
-| `find_age` | "Find me applicants above age 30" | age inference requires DOB — no keyword |
-| `infer_location` | "Is this candidate likely based in the United States?" | location inference via phone prefix — no keyword |
-| `fraud_check` | "Does anything about this application suggest it may be fraudulent?" | fraud verification needs name/SSN — no keyword |
+## Operator-Level Results
 
-**Privacy consequence:** for these five operators, 75–83% of all PII records
-(natural + high groups, n = 12,566) are routed to `cloud_anonymized` instead of
-`local` — i.e. Presidio strips the PII before sending to cloud, but the routing
-decision itself was wrong. If anonymization ever misses a detection, those records
-are exposed.
+| Operator | Sensitive? | Keyword acc. | LLM acc. | Keyword local | LLM local | Main result |
+|---|---:|---:|---:|---:|---:|---|
+| `extract_ssn` | yes | 100.0% | 55.8% | 177 | 0 | keyword wins |
+| `extract_contact` | yes | 100.0% | 92.5% | 181 | 151 | keyword wins |
+| `extract_identity` | yes | 100.0% | 48.5% | 206 | 0 | keyword wins |
+| `find_contact` | yes | 54.8% | 55.5% | 0 | 3 | near tie |
+| `attribute_authorship` | yes | 49.0% | 55.0% | 0 | 24 | LLM modestly better |
+| `find_age` | yes | 49.0% | 55.8% | 0 | 27 | LLM modestly better |
+| `infer_location` | yes | 54.8% | 54.8% | 0 | 0 | tie |
+| `fraud_check` | yes | 49.0% | 76.8% | 0 | 111 | LLM better, still incomplete |
+| `summarize_skills` | no | 100.0% | 100.0% | 0 | 0 | tie |
+| `classify_industry` | no | 100.0% | 100.0% | 0 | 0 | tie |
+| `rate_education` | no | 100.0% | 100.0% | 0 | 0 | tie |
+| `assess_seniority` | no | 100.0% | 100.0% | 0 | 0 | tie |
+| `score_relevance` | no | 100.0% | 100.0% | 0 | 0 | tie |
+| `summarize_birth_of_career` | no | 100.0% | 100.0% | 0 | 0 | tie |
 
-Keyword achieves **100% accuracy on all six non-sensitive operators** — no
-false positives, no unnecessary local routing.
+## Finding 1: Keyword Is Strong On Explicit PII Queries
 
----
+Keyword routing gets the explicitly sensitive operators exactly right relative to detected PII:
 
-## Finding 2 — LLM (llama3.2 3B) fails even on obvious sensitive queries
+- `extract_ssn`: 177 detected-PII calls -> 177 local
+- `extract_contact`: 181 detected-PII calls -> 181 local
+- `extract_identity`: 206 detected-PII calls -> 206 local
 
-The most striking result: `llama3.2` routes **zero records to `local`** for
-`extract_ssn` — a query that literally says "Extract the Social Security Number."
+The LLM misses two of these explicit cases badly:
 
-| Sensitive operator | LLM local count | Expected | Gap |
-|---|---|---|---|
-| `extract_ssn` | 0 | 10,336 | −10,336 |
-| `extract_contact` | 0 | 10,872 | −10,872 |
-| `find_contact` | 0 | 10,872 | −10,872 |
-| `find_age` | 0 | 12,158 | −12,158 |
-| `infer_location` | 0 | 10,872 | −10,872 |
-| `fraud_check` | 0 | 12,158 | −12,158 |
-| `extract_identity` | 2,306 | 12,509 | −10,203 |
-| `attribute_authorship` | 2,306 | 12,158 | −9,852 |
+- `extract_ssn`: 0 local, 177 cloud-anonymized
+- `extract_identity`: 0 local, 206 cloud-anonymized
 
-This is a **model-size / calibration failure**: `llama3.2` 3B cannot reliably
-answer meta-questions about whether a query needs a given data type. The LLM is
-being asked "Does 'Extract the Social Security Number' need a Social Security
-Number?" and saying no. A larger or better-calibrated model would likely behave
-differently.
+For `extract_contact`, the LLM does better but still misses 30 detected-PII calls.
 
-The LLM does provide **partial signal** for two operators:
-- `extract_identity` — 2,306 records routed to `local` (18% of the PII records
-  that should go local). These are likely the records where Presidio detected
-  `PERSON`-type entities, and the LLM judged "Identify the full name and personal
-  contact info" as needing them.
-- `attribute_authorship` — same 2,306 records, same pattern. The identical count
-  suggests the LLM cache hit on the same (entity_type) answers for these two operators.
+## Finding 2: LLM Gives Valid Yes/No Answers, But Often The Wrong Ones
 
----
+The new parse buckets show no malformed Ollama responses in this sample:
 
-## Finding 3 — LLM over-routes two non-sensitive operators
+| Operator | LLM yes | LLM no | Invalid | Error |
+|---|---:|---:|---:|---:|
+| `extract_ssn` | 0 | 177 | 0 | 0 |
+| `extract_contact` | 151 | 30 | 0 | 0 |
+| `extract_identity` | 0 | 206 | 0 | 0 |
+| `find_contact` | 3 | 178 | 0 | 0 |
+| `attribute_authorship` | 24 | 180 | 0 | 0 |
+| `find_age` | 27 | 177 | 0 | 0 |
+| `infer_location` | 0 | 181 | 0 | 0 |
+| `fraud_check` | 111 | 93 | 0 | 0 |
 
-`classify_industry` and `rate_education` are non-sensitive (do not need PII), but
-the LLM routes 2,306 records to `local` for each — reducing their quality savings
-by 18.4% relative to keyword.
+So the issue is not response parsing. Ollama is following the "yes/no" format. The issue is semantic calibration: it often answers `no` when the query should require the detected sensitive data.
 
-These two operators:
-- Share the same `depends_on` fields as `extract_identity`
-- Have descriptions starting with action verbs ("Identify...", "Rate...") that the
-  LLM may associate with identity-related tasks
+The clearest example is `extract_ssn`: the query literally asks to extract the Social Security Number, yet the per-entity prompt produced 177 `no` answers and 0 `yes` answers.
 
-The identical count (2,306 for both) strongly suggests the LLM's cached answers
-for the detected entity types are being reused — the model answered "yes, this
-entity type matters" for a (description, entity_type) pair that these operators
-share with a sensitive one.
+## Finding 3: LLM Helps Some Implicit Cases, But Not Enough
 
-`assess_seniority`, `score_relevance`, and `birth_of_career` are unaffected
-(100% accuracy), suggesting the LLM correctly handles simpler non-sensitive phrasings.
+On the paraphrased/implicit sensitive operators, keyword has no useful signal because the descriptions avoid explicit PII keywords.
 
----
+The LLM recovers some local routing:
 
-## Finding 4 — Quality savings: keyword outperforms LLM for non-sensitive ops
+| Operator | Detected-PII calls | LLM local | Share recovered |
+|---|---:|---:|---:|
+| `find_contact` | 181 | 3 | 1.7% |
+| `attribute_authorship` | 204 | 24 | 11.8% |
+| `find_age` | 204 | 27 | 13.2% |
+| `infer_location` | 181 | 0 | 0.0% |
+| `fraud_check` | 204 | 111 | 54.4% |
 
-| Operator | Two-way baseline | Keyword savings | LLM savings | LLM shortfall |
-|---|---|---|---|---|
-| `summarize_skills` | 12,509 | 12,509 (100%) | 12,509 (100%) | 0 |
-| `classify_industry` | 12,509 | 12,509 (100%) | 10,203 (82%) | −2,306 |
-| `rate_education` | 12,509 | 12,509 (100%) | 10,203 (82%) | −2,306 |
-| `assess_seniority` | 12,509 | 12,509 (100%) | 12,509 (100%) | 0 |
-| `score_relevance` | 12,509 | 12,509 (100%) | 12,509 (100%) | 0 |
-| `birth_of_career` | 12,158 | 12,158 (100%) | 12,158 (100%) | 0 |
+`fraud_check` is the strongest LLM improvement in this sample, but it still leaves 93 detected-PII calls routed to `cloud_anonymized` instead of `local`. That is best described as an intent-routing privacy risk rather than raw leakage: the record is anonymized first, but the sensitive query should have stayed local.
 
-Keyword achieves the maximum possible quality savings on every non-sensitive operator.
-LLM unnecessarily sends 4,612 calls to `local` across `classify_industry` and `rate_education`.
+## Finding 4: Non-Sensitive Quality Savings Are Perfect In This Sample
 
----
+Both methods route all non-sensitive detected-PII calls to `cloud_anonymized`, which is the desired quality-saving behavior:
 
-## Finding 5 — Four operators both methods fail identically
+| Operator | Detected-PII calls | Keyword cloud-anon | LLM cloud-anon |
+|---|---:|---:|---:|
+| `summarize_skills` | 206 | 206 | 206 |
+| `classify_industry` | 206 | 206 | 206 |
+| `rate_education` | 206 | 206 | 206 |
+| `assess_seniority` | 206 | 206 | 206 |
+| `score_relevance` | 206 | 206 | 206 |
+| `summarize_birth_of_career` | 204 | 204 | 204 |
 
-`find_contact`, `find_age`, `infer_location`, and `fraud_check` achieve the same
-low accuracy under both methods (17–25%). These represent a class of queries where:
+This is better than the older full-run LLM result, where LLM over-routed `classify_industry` and `rate_education` to local. The sampled run suggests that behavior may have been sensitive to exact LLM outputs, prompt version, or run conditions.
 
-1. No PII keyword appears in the description
-2. The LLM (3B) does not understand the implicit data dependency
+## Finding 5: Detector Misses Matter
 
-These are the hardest cases for any lightweight intent detector. Correct routing
-would require either: (a) a larger LLM with better reasoning, (b) schema-level
-annotations in the pipeline definition, or (c) the `depends_on` field explicitly
-set to exclude PII fields when the operator doesn't need them.
+The per-group breakdown shows that Presidio detection is not perfect on the `natural` group:
 
----
+- `extract_ssn`: 77/100 natural records detected and routed local under keyword; 23/100 went to cloud.
+- `extract_contact`: 81/100 natural records detected; 19/100 went to cloud.
+- `extract_identity`: 96/100 natural records detected; 4/100 went to cloud.
 
-## Overall verdict
+The `high` group is detected much more consistently for the explicit operators: 100/100 high records route local under keyword for `extract_ssn`, `extract_contact`, and `extract_identity`.
 
-| Criterion | Keyword | LLM (llama3.2 3B) |
-|---|---|---|
-| Explicit sensitive queries | ✓ Perfect | ✗ Fails (sends SSN queries to cloud) |
-| Paraphrased sensitive queries | ✗ Fails (100% leakage) | ✗ Fails (partial signal only) |
-| Implicit sensitive queries | ✗ Fails | ✗ Fails equally |
-| Non-sensitive accuracy | ✓ Perfect | ✗ 84% on 2/6 operators (over-routes) |
-| Quality savings | ✓ Maximum | ✗ −18% on 2/6 operators |
-| Privacy guarantee on explicit queries | ✓ Solid | ✗ None |
-| Speed | Instant | ~1–2s (cached after first call) |
-| Auditability | ✓ Readable keyword list | ✗ Black box |
+This distinction matters for the report: Q3 is mainly an intent-routing benchmark, but end-to-end privacy also depends on Q1 detector recall.
 
-**The keyword method is strictly better than LLM (llama3.2 3B) on this benchmark.**
-The LLM provides no additional privacy protection — it fails even where keyword
-succeeds — and introduces quality regression on non-sensitive operators.
+Terminology note: `cloud_anonymized` is not the same as raw PII leakage. It means the router chose the wrong destination for a sensitive query, but the anonymization path still runs before cloud execution. The raw-cloud risk is the `cloud` bucket for records that contain PII but were not detected as PII.
 
-The result does not rule out LLM intent detection in general. A larger model
-(GPT-4o, llama3.1:70b) would likely score better on explicit queries. The finding
-is specific to small local models used for cost-free intent detection.
+## Prompt Design Notes
 
----
+The existing design notes say the `general` prompt is better than the per-entity counterfactual prompt for `llama3.2`:
 
-## Diagrams needed
+| Prompt strategy | Micro-benchmark accuracy | Explicit sensitive | Paraphrased/implicit sensitive | Non-sensitive |
+|---|---:|---:|---:|---:|
+| `per_entity` | 42% | 1/3 | 0/5 | 4/4 |
+| `general` | 58% | 3/3 | 0/5 | 4/4 |
 
-The current Fig 1 has text overlay issues (8 operators × 2 bars in one panel, annotations crowd).
-Planned improvements:
+The current Q3 LLM path still uses the per-entity strategy:
 
-1. **Fig 1** — switch to horizontal bars; remove per-bar accuracy labels; use color fill intensity instead
-2. **Fig 2** — keep privacy leakage, reduce operator labels to short names
-3. **Fig 3** — routing distribution is readable; increase figure height
-4. **Fig 4** — disagreement 2×2 panel works well; just needs font tuning
-5. **Fig 5** — quality savings: simplify to a single grouped bar without annotations overlay
-6. **New: Fig 6** — a clean summary matrix table (operators × methods, cells = accuracy %) rendered as a heatmap — the single figure that tells the whole story at a glance
+- `_query_needs_sensitive_data_llm()` loops over detected entity types.
+- `_ask_llm_needs_entity()` asks whether that specific type is necessary.
+- `_ask_llm_needs_any_pii()` exists, but is not selected by the current config.
+
+The sampled result reinforces the design-note recommendation: the per-entity prompt is especially brittle for explicit SSN and identity extraction.
+
+## Diagram Set
+
+The updated figures in `data/figures/q3_sample_both` are designed around one takeaway per diagram:
+
+1. `q3_fig1_accuracy_matrix`: compact operator-by-method heatmap for the whole result.
+2. `q3_fig2_sensitive_routing_risk`: sensitive-query routing split into `local`, `cloud_anonymized`, and `cloud`.
+3. `q3_fig3_llm_response_buckets`: LLM `yes`/`no`/invalid parse buckets.
+4. `q3_fig4_quality_savings`: non-sensitive quality savings relative to the two-way baseline.
+5. `q3_fig5_detector_recall_context`: natural/high detector misses for explicit sensitive operators.
+
+These replace busier bar charts with figures that separate intent failures from detector misses and avoid hardcoded full-dataset labels.
+
+## Limitations
+
+- `--sample 100` uses the first 100 records from each PII group, not a random sample.
+- LLM answers may vary across Ollama/model versions and runtime conditions, even with temperature set to 0.
+- The analysis is based on the current per-entity LLM prompt; it does not evaluate the recommended `general` prompt yet.
+- Q3 isolates routing intent, but end-to-end privacy also depends on detector recall and anonymizer coverage.
+
+## Bottom Line
+
+On this 400-record balanced sample, keyword remains the better default: 82.6% overall accuracy versus 78.2% for the LLM path, and perfect routing for explicitly sensitive detected-PII calls.
+
+The LLM path adds partial signal for some implicit queries, especially `fraud_check`, but it fails too often on obvious explicit queries to be trusted as the primary privacy intent detector. The new parse buckets are useful: they show that this is not an Ollama formatting problem. It is a model/prompt judgment problem.
+
+Recommended next step: add a config switch for the `general` LLM prompt and rerun this same `--sample 100 --intent both` benchmark. That would test the prompt strategy that the design notes already identify as stronger without paying for a full-dataset run.

@@ -1,0 +1,10 @@
+Q3 figures generated from sample: 100/group (400 records)
+Keyword accuracy: 82.6% (4626/5600)
+LLM accuracy: 78.2% (4378/5600)
+
+Figures:
+1. q3_fig1_accuracy_matrix: method accuracy by operator
+2. q3_fig2_sensitive_routing_risk: local vs anonymized-risk vs cloud detector misses
+3. q3_fig3_llm_response_buckets: yes/no/invalid parsing buckets
+4. q3_fig4_quality_savings: cloud_anonymized savings on non-sensitive operators
+5. q3_fig5_detector_recall_context: natural/high detector misses for explicit sensitive ops

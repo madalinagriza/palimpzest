@@ -249,6 +249,7 @@ class OperatorResult:
     two_way_dest: str         # simulated naive baseline (any PII → local)
     expected_three_way: str   # ground truth for three-way routing
     correct_three_way: bool
+    llm_intent_status: str | None
     detections: list[dict]
 
 
@@ -269,6 +270,12 @@ class OperatorMetrics:
     # two-way baseline counts
     two_way_local: int = 0
     two_way_cloud: int = 0
+    # LLM intent response parse buckets (only populated when --intent llm/both)
+    llm_yes: int = 0
+    llm_no: int = 0
+    llm_invalid: int = 0
+    llm_error: int = 0
+    llm_missing_query: int = 0
     # per pii_group breakdown
     by_group: dict = field(default_factory=dict)
 
@@ -385,6 +392,16 @@ def run(
                 metrics.two_way_local += 1
             else:
                 metrics.two_way_cloud += 1
+            if decision.llm_intent_status == "yes":
+                metrics.llm_yes += 1
+            elif decision.llm_intent_status == "no":
+                metrics.llm_no += 1
+            elif decision.llm_intent_status == "invalid":
+                metrics.llm_invalid += 1
+            elif decision.llm_intent_status == "error":
+                metrics.llm_error += 1
+            elif decision.llm_intent_status == "missing_query":
+                metrics.llm_missing_query += 1
 
             all_results.append(OperatorResult(
                 op_name=cfg["name"],
@@ -395,6 +412,7 @@ def run(
                 two_way_dest=two_way,
                 expected_three_way=expected,
                 correct_three_way=correct,
+                llm_intent_status=decision.llm_intent_status,
                 detections=[
                     {"field": d.field_name, "entity": d.entity_type,
                      "source": d.source, "preview": d.preview}
@@ -448,6 +466,29 @@ def print_report(all_metrics: list[OperatorMetrics], sample_per_group: int | Non
     print(f"  2-way local = how many would go local under naive any-PII→local routing\n")
 
     # ── Quality savings summary ───────────────────────────────────────────────
+    if any(
+        m.llm_yes or m.llm_no or m.llm_invalid or m.llm_error or m.llm_missing_query
+        for m in all_metrics
+    ):
+        print(f"{'='*80}")
+        print("LLM INTENT RESPONSE PARSE BUCKETS")
+        print(f"{'='*80}")
+        print(
+            f"{'Operator':<20} {'yes':>8} {'no':>8} {'invalid':>10} "
+            f"{'error':>8} {'missing':>8}"
+        )
+        print("-" * 80)
+        for m in all_metrics:
+            print(
+                f"{m.op_name:<20} "
+                f"{m.llm_yes:>8} {m.llm_no:>8} {m.llm_invalid:>10} "
+                f"{m.llm_error:>8} {m.llm_missing_query:>8}"
+            )
+        print(
+            "\n  invalid = Ollama returned something whose first word was neither yes nor no; "
+            "the router treats it conservatively as needs-PII/local.\n"
+        )
+
     sensitive_ops   = [m for m in all_metrics if m.sensitive_query]
     nonsensitive_ops = [m for m in all_metrics if not m.sensitive_query]
 
@@ -588,6 +629,13 @@ def _serialize_metrics(metrics: list[OperatorMetrics]) -> list[dict]:
             "n_cloud_anonymized": m.n_cloud_anon,
             "n_cloud": m.n_cloud,
             "two_way_local": m.two_way_local,
+            "llm_response_buckets": {
+                "yes": m.llm_yes,
+                "no": m.llm_no,
+                "invalid": m.llm_invalid,
+                "error": m.llm_error,
+                "missing_query": m.llm_missing_query,
+            },
             "quality_savings": m.quality_savings,
             "quality_savings_pct": m.quality_savings_pct,
             "privacy_violations": m.privacy_violations,

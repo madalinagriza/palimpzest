@@ -180,6 +180,7 @@ class RouteDecision:
     reason: str = ""
     query_text: str = ""
     query_needs_sensitive: bool | None = None
+    llm_intent_status: str | None = None
 
 
 @dataclass
@@ -360,7 +361,7 @@ class PrivacyRouter:
         # Cache LLM intent decisions keyed by (query_text, entity_type) so Ollama
         # is called at most once per unique (operator description, entity type) pair
         # across the entire benchmark run.
-        self._llm_intent_cache: dict[tuple[str, str], bool] = {}
+        self._llm_intent_cache: dict[tuple[str, str], tuple[bool, str]] = {}
 
     @staticmethod
     def _safe_preview(value: str, limit: int = 60) -> str:
@@ -628,7 +629,7 @@ class PrivacyRouter:
         "US_PASSPORT":       "passport number",
     }
 
-    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> bool:
+    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> tuple[bool, str]:
         """
         Ask Ollama whether a query needs a specific PII type (per_entity mode).
         Uses a counterfactual frame: if this data were redacted, would the answer degrade?
@@ -651,7 +652,7 @@ class PrivacyRouter:
         )
         return self._ollama_yes_no(system, prompt)
 
-    def _ask_llm_needs_any_pii(self, query_text: str) -> bool:
+    def _ask_llm_needs_any_pii(self, query_text: str) -> tuple[bool, str]:
         """
         Ask Ollama whether a query needs *any* personal data (general mode).
         One call per unique query text, regardless of how many entity types were detected.
@@ -672,8 +673,13 @@ class PrivacyRouter:
         )
         return self._ollama_yes_no(system, prompt)
 
-    def _ollama_yes_no(self, system: str, prompt: str) -> bool:
-        """Send a yes/no prompt to Ollama and parse the response."""
+    def _ollama_yes_no(self, system: str, prompt: str) -> tuple[bool, str]:
+        """Send a yes/no prompt to Ollama and parse the response.
+
+        Returns (decision, status), where status is "yes", "no", "invalid",
+        or "error". Invalid/error responses are conservative: assume the query
+        needs PII so the record stays local.
+        """
         import urllib.request as _urlreq
         import json as _json
 
@@ -694,28 +700,36 @@ class PrivacyRouter:
                 result = _json.loads(resp.read())
                 answer = result.get("response", "").strip().lower()
                 first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
-                return first_word == "yes"
+                if first_word == "yes":
+                    return True, "yes"
+                if first_word == "no":
+                    return False, "no"
+                return True, "invalid"
         except Exception:
             # Ollama unreachable — conservative fallback: assume PII is needed.
-            return True
+            return True, "error"
 
-    def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> bool:
+    def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> tuple[bool, str]:
         """
         LLM-based intent detection. Asks Ollama whether the query needs each
         detected entity type. Answers are cached so Ollama is called once per
         unique (query_text, entity_type) pair, not once per record.
         """
         if not query_text.strip():
-            return True
+            return True, "missing_query"
+        final_status = "no"
         for d in detections:
             cache_key = (query_text, d.entity_type)
             if cache_key not in self._llm_intent_cache:
                 self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
                     query_text, d.entity_type
                 )
-            if self._llm_intent_cache[cache_key]:
-                return True
-        return False
+            needs_sensitive, status = self._llm_intent_cache[cache_key]
+            if status in {"invalid", "error", "missing_query"}:
+                final_status = status
+            if needs_sensitive:
+                return True, status
+        return False, final_status
 
     def inspect(self, operator, input_fields: list[str], input_record: Any | None = None) -> RouteDecision:
         """
@@ -776,9 +790,12 @@ class PrivacyRouter:
 
         if detections:
             if self.config.intent_method == "llm":
-                needs_sensitive = self._query_needs_sensitive_data_llm(query_text, detections)
+                needs_sensitive, llm_intent_status = self._query_needs_sensitive_data_llm(
+                    query_text, detections
+                )
             else:
                 needs_sensitive = self._query_needs_sensitive_data(query_text, detections)
+                llm_intent_status = None
             if needs_sensitive:
                 decision = RouteDecision(
                     destination="local",
@@ -787,6 +804,7 @@ class PrivacyRouter:
                     reason="detected sensitive data and operator prompt appears to need it",
                     query_text=query_text,
                     query_needs_sensitive=True,
+                    llm_intent_status=llm_intent_status,
                 )
             else:
                 decision = RouteDecision(
@@ -796,6 +814,7 @@ class PrivacyRouter:
                     reason="detected sensitive data, but operator prompt does not appear to need it",
                     query_text=query_text,
                     query_needs_sensitive=False,
+                    llm_intent_status=llm_intent_status,
                 )
         else:
             decision = RouteDecision(
@@ -805,6 +824,7 @@ class PrivacyRouter:
                 reason="no sensitive data detected in operator inputs",
                 query_text=query_text,
                 query_needs_sensitive=False,
+                llm_intent_status=None,
             )
 
         self.stats.record(decision)
@@ -974,6 +994,7 @@ def execute_with_routing(
             reason=f"document-level cached: {cached_decision.reason}",
             query_text=cached_decision.query_text,
             query_needs_sensitive=cached_decision.query_needs_sensitive,
+            llm_intent_status=cached_decision.llm_intent_status,
         )
         router.stats.record(decision)
         router.last_decision = decision
@@ -1018,6 +1039,7 @@ def execute_with_routing(
         f"  |  model_swapped={model_swapped}"
         f"  |  reason={decision.reason!r}"
         f"  |  query_needs_sensitive={decision.query_needs_sensitive}"
+        f"  |  llm_intent_status={decision.llm_intent_status}"
         f"  |  query={router._safe_preview(decision.query_text, limit=100)!r}"
         f"  |  detections={detection_summary}"
     )
