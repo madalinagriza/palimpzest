@@ -298,7 +298,7 @@ def run_granularity_multi(
 
         # Confusion matrix uses Op2 decisions (the interesting divergence point)
         if pii_group not in metrics.by_group:
-            metrics.by_group[pii_group] = {"local": 0, "cloud": 0, "total": 0}
+            metrics.by_group[pii_group] = {"local": 0, "cloud": 0, "cloud_anonymized": 0, "total": 0}
         metrics.by_group[pii_group][op2_decision.destination] += 1
         metrics.by_group[pii_group]["total"] += 1
         metrics.total += 1
@@ -386,7 +386,7 @@ def run_granularity(
 
         # Tally per-group counts
         if pii_group not in metrics.by_group:
-            metrics.by_group[pii_group] = {"local": 0, "cloud": 0, "total": 0}
+            metrics.by_group[pii_group] = {"local": 0, "cloud": 0, "cloud_anonymized": 0, "total": 0}
         metrics.by_group[pii_group][destination] += 1
         metrics.by_group[pii_group]["total"] += 1
 
