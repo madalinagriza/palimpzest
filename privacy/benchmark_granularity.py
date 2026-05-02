@@ -47,7 +47,7 @@ DATA_PATH = os.path.abspath(
 )
 
 # Ollama model (must be pulled: `ollama pull llama3.1:8b`)
-LOCAL_MODEL = pz.Model("openai/llama3.1:8b", api_base="http://localhost:11434/v1")
+LOCAL_MODEL = pz.Model("openai/qwen2.5:7b", api_base="http://localhost:11434/v1")
 
 # Ground truth: which groups should sem_filter ACCEPT?
 POSITIVE_GROUPS = {"natural", "high"}
@@ -138,6 +138,7 @@ def run_one(
     dataset: ResumeDataset,
     config: pz.QueryProcessorConfig,
     verbose: bool,
+    intent_method: str = "keyword",
 ) -> dict:
     plan = dataset.sem_filter(
         "The resume contains personally identifiable information such as a "
@@ -146,9 +147,11 @@ def run_one(
     )
 
     router = PrivacyRouter(ModelConfig(
-        local_model="openai/llama3.1:8b",
+        local_model="openai/qwen2.5:7b",
         local_api_base="http://localhost:11434/v1",
         anonymization_sensitivity=sensitivity,
+        intent_method=intent_method,
+        intent_llm_model="qwen2.5:7b",
     ))
     processor = create_privacy_processor(plan, config, router=router, granularity=granularity)
 
@@ -238,6 +241,12 @@ def main():
             f"Default: {AnonymizationSensitivity.BALANCED.value}"
         ),
     )
+    parser.add_argument(
+        "--intent",
+        choices=["keyword", "llm"],
+        default="keyword",
+        help="Intent-detection method: 'keyword' (default) or 'llm' (Ollama call per entity)",
+    )
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
     sensitivity = AnonymizationSensitivity(args.sensitivity)
@@ -267,8 +276,8 @@ def main():
         RoutingGranularity.FIELD,
         RoutingGranularity.DOCUMENT,
     ]:
-        print(f"--- Running granularity: {granularity.value}  sensitivity: {sensitivity.value} ---")
-        row = run_one(granularity, sensitivity, all_records, dataset, config, args.verbose)
+        print(f"--- Running granularity: {granularity.value}  sensitivity: {sensitivity.value}  intent: {args.intent} ---")
+        row = run_one(granularity, sensitivity, all_records, dataset, config, args.verbose, intent_method=args.intent)
         results.append(row)
         print(f"  done in {row['elapsed']:.1f}s  "
               f"kept={row['kept']}/{row['total']}  "

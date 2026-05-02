@@ -307,12 +307,14 @@ def run(
     backend: str,
     score_threshold: float,
     intent_method: str = "keyword",
+    intent_llm_model: str = "llama3.2",
 ) -> tuple[list[OperatorMetrics], list[OperatorResult]]:
 
     config = ModelConfig(
         detector_backend=backend,
         score_threshold=score_threshold,
         intent_method=intent_method,
+        intent_llm_model=intent_llm_model,
     )
     router = PrivacyRouter(config)
 
@@ -616,6 +618,8 @@ def main():
     parser.add_argument("--intent", default="keyword",
                         choices=["keyword", "llm", "both"],
                         help="Intent detection method: keyword matching, LLM (Ollama), or both (default: keyword)")
+    parser.add_argument("--intent-llm-model", default="llama3.2",
+                        help="Ollama model for LLM intent detection (default: llama3.2)")
     args = parser.parse_args()
     sample_per_group: int | None = None if args.all else args.sample
 
@@ -639,7 +643,7 @@ def main():
         print(f"Running Q3  backend={args.backend}  intent={method}")
         print(f"{'='*60}")
         t0 = time.time()
-        all_metrics, all_results = run(records, args.backend, args.score_threshold, method)
+        all_metrics, all_results = run(records, args.backend, args.score_threshold, method, args.intent_llm_model)
         elapsed = time.time() - t0
         results_by_method[method] = all_metrics
         print(f"  Completed in {elapsed:.1f}s")

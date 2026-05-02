@@ -558,7 +558,9 @@ class PrivacyRouter:
     def _extract_query_text(self, operator) -> str:
         chunks: list[str] = []
 
-        filt = getattr(operator, "filter", None)
+        # filter_obj holds the actual filter object (has .get_filter_str()).
+        # operator.filter is a bound method — skip it.
+        filt = getattr(operator, "filter_obj", None)
         if filt is not None:
             try:
                 chunks.append(filt.get_filter_str())
@@ -628,24 +630,24 @@ class PrivacyRouter:
         "US_PASSPORT":       "passport number",
     }
 
-    def _ask_llm_needs_entity(self, query_text: str, entity_type: str) -> bool:
+    def _ask_llm_needs_entity(self, query_text: str, entity_type: str, detected_value: str = "") -> bool:
         """
-        Ask Ollama whether a query needs a specific PII type (per_entity mode).
-        Uses a counterfactual frame: if this data were redacted, would the answer degrade?
-        Cached by caller — at most one Ollama call per (query_text, entity_type) pair.
-        Falls back to keyword matching if Ollama is unreachable.
+        Ask the model whether this query needs a specific detected value.
+        Counterfactual frame: if this exact value were redacted, would the answer degrade?
+        Falls back to keyword matching if the endpoint is unreachable.
         """
         label = self._ENTITY_LABELS.get(entity_type, entity_type)
+        value_clause = f' (detected value: "{detected_value}")' if detected_value else ""
         system = (
             "You are a data privacy classifier. "
-            "You will be given a database query and one type of sensitive personal data. "
+            "You will be given a database query and a specific piece of sensitive personal data. "
             "Your job: decide if that data is necessary for the query to work correctly. "
             "Answer with exactly one word — 'yes' or 'no' — nothing else."
         )
         prompt = (
             f'Query: "{query_text}"\n'
-            f"Personal data type: {label}\n\n"
-            f"If {label} were completely redacted from the input, "
+            f"Personal data type: {label}{value_clause}\n\n"
+            f"If this {label} were completely redacted from the input, "
             f"would this query produce a wrong or incomplete answer?\n"
             f"yes or no:"
         )
@@ -673,45 +675,50 @@ class PrivacyRouter:
         return self._ollama_yes_no(system, prompt)
 
     def _ollama_yes_no(self, system: str, prompt: str) -> bool:
-        """Send a yes/no prompt to Ollama and parse the response."""
+        """Send a yes/no prompt via the OpenAI-compatible chat endpoint."""
         import urllib.request as _urlreq
         import json as _json
 
+        base = self.config.local_api_base.rstrip("/")
+        url = f"{base}/chat/completions"
         try:
             payload = _json.dumps({
                 "model": self.config.intent_llm_model,
-                "system": system,
-                "prompt": prompt,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": prompt},
+                ],
+                "temperature": 0,
+                "max_tokens": 16,
                 "stream": False,
-                "options": {"temperature": 0, "num_predict": 16},
             }).encode()
             req = _urlreq.Request(
-                "http://localhost:11434/api/generate",
+                url,
                 data=payload,
                 headers={"Content-Type": "application/json"},
             )
             with _urlreq.urlopen(req, timeout=30) as resp:
                 result = _json.loads(resp.read())
-                answer = result.get("response", "").strip().lower()
+                answer = result["choices"][0]["message"]["content"].strip().lower()
                 first_word = answer.split()[0].rstrip(".,!") if answer.split() else ""
                 return first_word == "yes"
         except Exception:
-            # Ollama unreachable — conservative fallback: assume PII is needed.
+            # Endpoint unreachable — conservative fallback: assume PII is needed.
             return True
 
     def _query_needs_sensitive_data_llm(self, query_text: str, detections: list[Detection]) -> bool:
         """
-        LLM-based intent detection. Asks Ollama whether the query needs each
-        detected entity type. Answers are cached so Ollama is called once per
-        unique (query_text, entity_type) pair, not once per record.
+        LLM-based intent detection. Asks the model whether the query needs each
+        detected value. Cache key includes the detected value so each unique
+        (query, entity_type, value) gets its own LLM judgment.
         """
         if not query_text.strip():
             return True
         for d in detections:
-            cache_key = (query_text, d.entity_type)
+            cache_key = (query_text, d.entity_type, d.preview or "")
             if cache_key not in self._llm_intent_cache:
                 self._llm_intent_cache[cache_key] = self._ask_llm_needs_entity(
-                    query_text, d.entity_type
+                    query_text, d.entity_type, detected_value=d.preview or ""
                 )
             if self._llm_intent_cache[cache_key]:
                 return True
